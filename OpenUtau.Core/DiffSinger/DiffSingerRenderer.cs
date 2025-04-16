@@ -420,7 +420,7 @@ namespace OpenUtau.Core.DiffSinger {
                             "The parameter \"falsetto_dev\" required by acoustic model is not found in variance predictions.");
                     }
                     var predictedFalsetto = DiffSingerUtils.ResampleCurve(varianceResult.falsetto, totalFrames);
-                    var falsetto = predictedFalsetto.Zip(userFalsetto, (x, y) => (float)Math.Clamp(x * (y / 100), 0.0, 1.0)).ToArray(); //???
+                    var falsetto = predictedFalsetto.Zip(userFalsetto, (x, y) => (float)(x * (y / 100))).ToArray(); //???
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("falsetto_dev",
                         new DenseTensor<float>(falsetto, new int[] { falsetto.Length })
                         .Reshape(new int[] { 1, falsetto.Length })));
