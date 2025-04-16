@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -18,6 +18,7 @@ namespace OpenUtau.Core.DiffSinger{
         public float[]? breathiness;
         public float[]? voicing;
         public float[]? tension;
+        public float[]? falsetto;
     }
     public class DsVariance : IDisposable{
         string rootPath;
@@ -224,12 +225,20 @@ namespace OpenUtau.Core.DiffSinger{
                     new DenseTensor<float>(tension, new int[] { tension.Length }, false)
                         .Reshape(new int[] { 1, totalFrames })));
             }
+            if (dsConfig.predict_falsetto_dev)
+            {
+                var falsetto = Enumerable.Repeat(0f, totalFrames).ToArray();
+                varianceInputs.Add(NamedOnnxValue.CreateFromTensor("falsetto_dev",
+                    new DenseTensor<float>(falsetto, new int[] { falsetto.Length }, false)
+                        .Reshape(new int[] { 1, totalFrames })));
+            }
 
             var numVariances = new[] {
                 dsConfig.predict_energy,
                 dsConfig.predict_breathiness,
                 dsConfig.predict_voicing,
                 dsConfig.predict_tension,
+                dsConfig.predict_falsetto_dev,
             }.Sum(Convert.ToInt32);
             var retake = Enumerable.Repeat(true, totalFrames * numVariances).ToArray();
             varianceInputs.Add(NamedOnnxValue.CreateFromTensor("retake",
@@ -287,11 +296,18 @@ namespace OpenUtau.Core.DiffSinger{
                     .First()
                     .AsTensor<float>()
                 : null;
+            Tensor<float>? falsetto_pred = dsConfig.predict_falsetto_dev
+                ? varianceOutputs
+                    .Where(o => o.Name == "falsetto_dev_pred")
+                    .First()
+                    .AsTensor<float>()
+                : null;
             return new VarianceResult{
                 energy = energy_pred?.ToArray(),
                 breathiness = breathiness_pred?.ToArray(),
                 voicing = voicing_pred?.ToArray(),
                 tension = tension_pred?.ToArray(),
+                falsetto = falsetto_pred?.ToArray(),
             };
         }
 

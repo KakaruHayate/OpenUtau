@@ -22,6 +22,7 @@ namespace OpenUtau.Core.DiffSinger {
         const string VELC = DiffSingerUtils.VELC;
         const string ENE = DiffSingerUtils.ENE;
         const string PEXP = DiffSingerUtils.PEXP;
+        const string FALC = DiffSingerUtils.FALC;
         const string VoiceColorHeader = DiffSingerUtils.VoiceColorHeader;
 
         static readonly HashSet<string> supportedExp = new HashSet<string>(){
@@ -35,6 +36,7 @@ namespace OpenUtau.Core.DiffSinger {
             VELC,
             ENE,
             PEXP,
+            FALC,
             Format.Ustx.SHFC,
         };
 
@@ -320,12 +322,13 @@ namespace OpenUtau.Core.DiffSinger {
                 acousticInputs.Add(NamedOnnxValue.CreateFromTensor("velocity", velocityTensor));
             }
 
-            //Variance: Energy, Breathiness, Voicing and Tension
+            //Variance: Energy, Breathiness, Voicing, Tension and Falsetto
             if(
                 singer.dsConfig.useBreathinessEmbed
                 || singer.dsConfig.useEnergyEmbed
                 || singer.dsConfig.useVoicingEmbed
-                || singer.dsConfig.useTensionEmbed) {
+                || singer.dsConfig.useTensionEmbed
+                || singer.dsConfig.useFalsettoDevEmbed) {
                 var variancePredictor = singer.getVariancePredictor();
                 VarianceResult varianceResult;
                 lock(variancePredictor){
@@ -396,6 +399,31 @@ namespace OpenUtau.Core.DiffSinger {
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("tension",
                         new DenseTensor<float>(tension, new int[] { tension.Length })
                         .Reshape(new int[] { 1, tension.Length })));
+                }
+                if (singer.dsConfig.useFalsettoDevEmbed)
+                {
+                    var falsettoCurve = phrase.curves.FirstOrDefault(curve => curve.Item1 == FALC);
+                    IEnumerable<double> userFalsetto;
+                    if (falsettoCurve != null)
+                    {
+                        userFalsetto = DiffSingerUtils.SampleCurve(phrase, falsettoCurve.Item2,
+                            0, frameMs, totalFrames, headFrames, tailFrames,
+                            x => x);
+                    }
+                    else
+                    {
+                        userFalsetto = Enumerable.Repeat(0d, totalFrames);
+                    }
+                    if (varianceResult.falsetto == null)
+                    {
+                        throw new KeyNotFoundException(
+                            "The parameter \"falsetto_dev\" required by acoustic model is not found in variance predictions.");
+                    }
+                    var predictedFalsetto = DiffSingerUtils.ResampleCurve(varianceResult.falsetto, totalFrames);
+                    var falsetto = predictedFalsetto.Zip(userFalsetto, (x, y) => (float)(x + (y - 100) / 200)).ToArray(); //???
+                    acousticInputs.Add(NamedOnnxValue.CreateFromTensor("falsetto_dev",
+                        new DenseTensor<float>(falsetto, new int[] { falsetto.Length })
+                        .Reshape(new int[] { 1, falsetto.Length })));
                 }
             }
             Onnx.VerifyInputNames(acousticModel, acousticInputs);
@@ -499,6 +527,16 @@ namespace OpenUtau.Core.DiffSinger {
                     max = 100,
                     defaultValue = 100,
                     isFlag = false
+                },
+                //falsetto
+                new UExpressionDescriptor{
+                    name="falsetto (curve)",
+                    abbr=FALC,
+                    type=UExpressionType.Curve,
+                    min=0,
+                    max=200,
+                    defaultValue=100,
+                    isFlag=false,
                 },
             };
             //speakers

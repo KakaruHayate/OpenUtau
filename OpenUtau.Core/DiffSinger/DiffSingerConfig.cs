@@ -27,6 +27,7 @@ namespace OpenUtau.Core.DiffSinger {
         public bool useBreathinessEmbed = false;
         public bool useVoicingEmbed = false;
         public bool useTensionEmbed = false;
+        public bool useFalsettoDevEmbed = false;
         public AugmentationArgs augmentationArgs;
         public bool useContinuousAcceleration = false;
         public bool use_lang_id = false;
@@ -56,6 +57,7 @@ namespace OpenUtau.Core.DiffSinger {
         public bool predict_breathiness = true;
         public bool predict_voicing = false;
         public bool predict_tension = false;
+        public bool predict_falsetto_dev = false;
         public bool use_expr = false;
         public bool use_note_rest = false;
         public int sample_rate = 44100;
