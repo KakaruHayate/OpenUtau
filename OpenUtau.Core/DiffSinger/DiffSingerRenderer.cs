@@ -546,6 +546,12 @@ namespace OpenUtau.Core.DiffSinger {
                         Format.Ustx.TENC, result.tension ?? Array.Empty<float>(), phrase.tension,
                         x => Math.Clamp(x, -10f, 10f) / 20f + 0.5f
                     ),
+                    (
+                        FALC, result.falsetto ?? Array.Empty<float>(),
+                        phrase.curves.FirstOrDefault(curve => curve.Item1 == FALC)?.Item2
+                        ?? Enumerable.Repeat(0f, 2).ToArray(),
+                        x => Math.Clamp(x, 1f, 0f)
+                    ),
                 }.Select(t => {
                     var abbr = t.Item1;
                     var realCurve = t.Item2;
