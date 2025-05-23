@@ -652,9 +652,9 @@ namespace OpenUtau.App.Views {
 
         void OnMenuClearCache(object sender, RoutedEventArgs args) {
             Task.Run(() => {
-                DocManager.Inst.ExecuteCmd(new ProgressBarNotification(0, ThemeManager.GetString("progress.clearingcache")));
+                DocManager.Inst.ExecuteCmd(new ProgressBarNotification(0, "Clearing cache..."));
                 PathManager.Inst.ClearCache();
-                DocManager.Inst.ExecuteCmd(new ProgressBarNotification(0, ThemeManager.GetString("progress.cachecleared")));
+                DocManager.Inst.ExecuteCmd(new ProgressBarNotification(0, "Cache cleared."));
             });
         }
 
@@ -721,11 +721,10 @@ namespace OpenUtau.App.Views {
         void OnMenuLayoutHSplit13(object sender, RoutedEventArgs args) => LayoutSplit(1.0 / 4, null);
 
         private void LayoutSplit(double? x, double? y) {
-            var mainScreen = Screens.Primary != null ? Screens.Primary : Screens.All[0];
-            if (mainScreen == null) {
+            if (Screens.Primary == null) {
                 return;
             }
-            var wa = mainScreen.WorkingArea;
+            var wa = Screens.Primary.WorkingArea;
             WindowState = WindowState.Normal;
             double titleBarHeight = 20;
             if (FrameSize != null) {

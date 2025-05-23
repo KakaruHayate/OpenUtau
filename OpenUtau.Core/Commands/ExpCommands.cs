@@ -350,16 +350,14 @@ namespace OpenUtau.Core {
         readonly int[] oldYs;
         readonly int[] newXs;
         readonly int[] newYs;
-        readonly bool setReal;
         public MergedSetCurveCommand(UProject project, UVoicePart part,
-            string abbr, int[] oldXs, int[] oldYs, int[] newXs, int[] newYs, bool setReal = false) : base(part) {
+            string abbr, int[] oldXs, int[] oldYs, int[] newXs, int[] newYs) : base(part) {
             this.project = project;
             this.abbr = abbr;
             this.oldXs = oldXs;
             this.oldYs = oldYs;
             this.newXs = newXs;
             this.newYs = newYs;
-            this.setReal = setReal;
         }
         public override string ToString() => "Edit Curve";
         public override void Execute() {
@@ -368,11 +366,11 @@ namespace OpenUtau.Core {
                 curve = new UCurve(descriptor);
                 Part.curves.Add(curve);
             }
-            GetCurveXs(curve)?.Clear();
-            GetCurveYs(curve)?.Clear();
+            curve.xs.Clear();
+            curve.ys.Clear();
             if (newXs != null && newYs != null) {
-                GetCurveXs(curve)?.AddRange(newXs);
-                GetCurveYs(curve)?.AddRange(newYs);
+                curve.xs.AddRange(newXs);
+                curve.ys.AddRange(newYs);
             }
         }
         public override void Unexecute() {
@@ -381,18 +379,12 @@ namespace OpenUtau.Core {
                 curve = new UCurve(descriptor);
                 Part.curves.Add(curve);
             }
-            GetCurveXs(curve)?.Clear();
-            GetCurveYs(curve)?.Clear();
+            curve.xs.Clear();
+            curve.ys.Clear();
             if (oldXs != null && oldYs != null) {
-                GetCurveXs(curve)?.AddRange(oldXs);
-                GetCurveYs(curve)?.AddRange(oldYs);
+                curve.xs.AddRange(oldXs);
+                curve.ys.AddRange(oldYs);
             }
-        }
-        private List<int>? GetCurveXs(UCurve? curve) {
-            return setReal ? curve?.realXs : curve?.xs;
-        }
-        private List<int>? GetCurveYs(UCurve? curve) {
-            return setReal ? curve?.realYs : curve?.ys;
         }
     }
 

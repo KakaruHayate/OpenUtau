@@ -682,7 +682,7 @@ namespace OpenUtau.Plugin.Builtin {
             return MakeSimpleResult(note.lyric.Substring(1));
         }
 
-        protected void ReadDictionaryAndInit() {
+        private void ReadDictionaryAndInit() {
             var dictionaryName = GetDictionaryName();
             if (dictionaryName == null) {
                 return;

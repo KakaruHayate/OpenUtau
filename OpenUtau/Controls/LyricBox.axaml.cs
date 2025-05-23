@@ -27,7 +27,6 @@ namespace OpenUtau.App.Controls {
         }
 
         private void Box_LostFocus(object? sender, RoutedEventArgs e) {
-            box.CaretIndex = 0;
         }
 
         private void ListBox_KeyDown(object? sender, KeyEventArgs e) {
@@ -113,14 +112,6 @@ namespace OpenUtau.App.Controls {
                     listBox.Focus();
                     listBox.SelectedIndex = 0;
                     e.Handled = true;
-                    break;
-                case Key.Left:
-                    if (box.SelectionStart < box.SelectionEnd)
-                        box.SelectionEnd = box.SelectionStart;
-                    break;
-                case Key.Right:
-                    if (box.SelectionStart > box.SelectionEnd)
-                        box.SelectionEnd = box.SelectionStart;
                     break;
                 default:
                     break;

@@ -5,8 +5,12 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using K4os.Hash.xxHash;
+using NAudio.Wave;
 using OpenUtau.Core;
 using OpenUtau.Core.Render;
+using OpenUtau.Core.Ustx;
+using static NetMQ.NetMQSelector;
+using static OpenUtau.Api.Phonemizer;
 
 namespace OpenUtau.Classic {
     public class ResamplerItem {
@@ -100,9 +104,6 @@ namespace OpenUtau.Classic {
             hash = Hash();
             outputFile = Path.Join(PathManager.Inst.CachePath,
                 $"res-{XXH32.DigestOf(Encoding.UTF8.GetBytes(phrase.singer.Id)):x8}-{hash:x16}.wav");
-
-            phrase.AddCacheFile(inputTemp);
-            phrase.AddCacheFile(outputFile);
         }
         public string GetFlagsString() {
             var builder = new StringBuilder();

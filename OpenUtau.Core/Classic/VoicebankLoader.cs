@@ -500,7 +500,9 @@ namespace OpenUtau.Classic {
                     }
                     writer.Write(oto.Wav);
                     writer.Write('=');
-                    writer.Write(oto.Alias);
+                    if (oto.Alias != RemoveExtension(oto.Wav)) {
+                        writer.Write(oto.Alias);
+                    }
                     writer.Write(',');
                     if (oto.Offset != 0) {
                         writer.Write(oto.Offset);

@@ -73,7 +73,7 @@ namespace OpenUtau.Classic {
                 {
                     index++;
                     progress.Invoke(100.0 * index / fileCount, $"Compressing {absFilePath}");
-                    string reFilePath = Path.GetRelativePath(location, absFilePath).Replace('\\', '/');
+                    string reFilePath = Path.GetRelativePath(location, absFilePath);
                     archive.CreateEntryFromFile(absFilePath, reFilePath);
                 }
             }

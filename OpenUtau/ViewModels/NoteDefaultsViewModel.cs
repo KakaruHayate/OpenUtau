@@ -10,7 +10,6 @@ namespace OpenUtau.App.ViewModels {
     class NoteDefaultsViewModel : ViewModelBase {
 
         [Reactive] public string? DefaultLyric { get; set; }
-        [Reactive] public string? SplittedLyric { get; set; }
         [Reactive] public int CurrentPortamentoLength { get; set; }
         [Reactive] public int CurrentPortamentoStart { get; set; }
         [Reactive] public float CurrentVibratoLength { get; set; }
@@ -41,7 +40,6 @@ namespace OpenUtau.App.ViewModels {
         public bool IsVibratoApplied => appliedVibratoPreset != null;
         public NoteDefaultsViewModel() {
             DefaultLyric = NotePresets.Default.DefaultLyric;
-            SplittedLyric = NotePresets.Default.SplittedLyric;
             CurrentPortamentoLength = NotePresets.Default.DefaultPortamento.PortamentoLength;
             CurrentPortamentoStart = NotePresets.Default.DefaultPortamento.PortamentoStart;
             CurrentVibratoLength = NotePresets.Default.DefaultVibrato.VibratoLength;
@@ -63,14 +61,6 @@ namespace OpenUtau.App.ViewModels {
                             return;
                         }
                         NotePresets.Default.DefaultLyric = defaultLyric;
-                        NotePresets.Save();
-                    });
-            this.WhenAnyValue(vm => vm.SplittedLyric)
-                    .Subscribe(splittedLyric => {
-                        if(splittedLyric == null){
-                            return;
-                        }
-                        NotePresets.Default.SplittedLyric = splittedLyric;
                         NotePresets.Save();
                     });
             this.WhenAnyValue(vm => vm.CurrentPortamentoLength)
@@ -211,7 +201,6 @@ namespace OpenUtau.App.ViewModels {
 
         public void ResetSettings() {
             DefaultLyric = NotePresets.Default.DefaultLyric;
-            SplittedLyric = NotePresets.Default.SplittedLyric;
             CurrentPortamentoLength = NotePresets.Default.DefaultPortamento.PortamentoLength;
             CurrentPortamentoStart = NotePresets.Default.DefaultPortamento.PortamentoStart;
             CurrentVibratoLength = NotePresets.Default.DefaultVibrato.VibratoLength;
