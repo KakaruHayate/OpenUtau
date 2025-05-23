@@ -550,7 +550,7 @@ namespace OpenUtau.Core.DiffSinger {
                         FALC, result.falsetto ?? Array.Empty<float>(),
                         phrase.curves.FirstOrDefault(curve => curve.Item1 == FALC)?.Item2
                         ?? Enumerable.Repeat(0f, 2).ToArray(),
-                        x => Math.Clamp(x, 1f, 0f)
+                        x => Math.Clamp(x, 0f, 1f)
                     ),
                 }.Select(t => {
                     var abbr = t.Item1;
