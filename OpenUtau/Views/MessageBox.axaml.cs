@@ -48,15 +48,7 @@ namespace OpenUtau.App.Views {
                 if (!string.IsNullOrEmpty(mce.TranslatableMessage)) {
                     var matches = Regex.Matches(mce.TranslatableMessage, "<translate:(.*?)>");
                     matches.ForEach(m => mce.TranslatableMessage = mce.TranslatableMessage.Replace(m.Value, ThemeManager.GetString(m.Groups[1].Value)));
-                    try {
-                        if (mce.Replaces != null && mce.Replaces.Length > 0) {
-                            text = string.Format(mce.TranslatableMessage, mce.Replaces);
-                        } else {
-                            text = mce.TranslatableMessage;
-                        }
-                    } catch {
-                        text = mce.TranslatableMessage;
-                    }
+                    text = mce.TranslatableMessage;
                     e = mce.SubstanceException;
                 }
 
@@ -80,15 +72,7 @@ namespace OpenUtau.App.Views {
                         if (!string.IsNullOrEmpty(innnerMce.TranslatableMessage)) {
                             var matches = Regex.Matches(innnerMce.TranslatableMessage, "<translate:(.*?)>");
                             matches.ForEach(m => innnerMce.TranslatableMessage = innnerMce.TranslatableMessage.Replace(m.Value, ThemeManager.GetString(m.Groups[1].Value)));
-                            try {
-                                if (innnerMce.Replaces != null && innnerMce.Replaces.Length > 0) {
-                                    text += string.Format(innnerMce.TranslatableMessage, innnerMce.Replaces);
-                                } else {
-                                    text += innnerMce.TranslatableMessage;
-                                }
-                            } catch {
-                                text = text += innnerMce.TranslatableMessage;
-                            }
+                            text += innnerMce.TranslatableMessage;
                         } else {
                             text += ae.InnerExceptions.First().Message;
                         }
@@ -246,7 +230,7 @@ namespace OpenUtau.App.Views {
 
         private void SetTextWithLink(string text, StackPanel textPanel) {
             // @"http(s)?://([\w-]+\.)+[\w-]+(/[A-Z0-9-.,_/?%&=]*)?"
-            var regex = new Regex(@"http(s)?://[^(\r\n|\n| )]+", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            var regex = new Regex(@"(\r\n|\n| )http(s)?://[^(\r\n|\n| )]+", RegexOptions.IgnoreCase | RegexOptions.Singleline);
             var match = regex.Match(text);
             if (match.Success) {
                 textPanel.Children.Add(new TextBlock { Text = text.Substring(0, match.Index) });

@@ -60,7 +60,6 @@ namespace OpenUtau.App.ViewModels {
             SelectSingerCommand = ReactiveCommand.Create<USinger>(singer => {
                 if (track.Singer != singer) {
                     DocManager.Inst.StartUndoGroup();
-                    Log.Information($"Loading Singer: {singer.Name}");
                     DocManager.Inst.ExecuteCmd(new TrackChangeSingerCommand(DocManager.Inst.Project, track, singer));
                     if (!string.IsNullOrEmpty(singer?.Id) &&
                         Preferences.Default.SingerPhonemizers.TryGetValue(Singer.Id, out var phonemizerName) &&
@@ -98,7 +97,6 @@ namespace OpenUtau.App.ViewModels {
                 if (track.Phonemizer.GetType() != factory.type) {
                     DocManager.Inst.StartUndoGroup();
                     var phonemizer = factory.Create();
-                    Log.Information($"Loading Phonemizer: {phonemizer.ToString()}");
                     DocManager.Inst.ExecuteCmd(new TrackChangePhonemizerCommand(DocManager.Inst.Project, track, phonemizer));
                     DocManager.Inst.EndUndoGroup();
                     var name = phonemizer.GetType().FullName!;
@@ -256,7 +254,7 @@ namespace OpenUtau.App.ViewModels {
                     CommandParameter = singer,
                 }));
             items.Add(new SingerMenuItemViewModel() {
-                Header = ThemeManager.GetString("tracks.favorite") + " ...",
+                Header = "Favourites ...",
                 Items = Preferences.Default.FavoriteSingers
                     .Select(id => SingerManager.Inst.Singers.Values.FirstOrDefault(singer => singer.Id == id))
                     .OfType<USinger>()

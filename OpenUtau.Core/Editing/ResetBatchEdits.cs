@@ -178,9 +178,13 @@ namespace OpenUtau.Core.Editing {
         public void Run(UProject project, UVoicePart part, List<UNote> selectedNotes, DocManager docManager) {
             var notes = selectedNotes.Count > 0 ? selectedNotes : part.notes.ToList();
             docManager.StartUndoGroup(true);
-            var vibrato = new UVibrato();
             foreach (var note in notes) {
-                docManager.ExecuteCmd(new SetVibratoCommand(part, note, vibrato));
+                docManager.ExecuteCmd(new VibratoPeriodCommand(part, note, NotePresets.Default.DefaultVibrato.VibratoPeriod));
+                docManager.ExecuteCmd(new VibratoDepthCommand(part, note, NotePresets.Default.DefaultVibrato.VibratoDepth));
+                docManager.ExecuteCmd(new VibratoFadeInCommand(part, note, NotePresets.Default.DefaultVibrato.VibratoIn));
+                docManager.ExecuteCmd(new VibratoFadeOutCommand(part, note, NotePresets.Default.DefaultVibrato.VibratoOut));
+                docManager.ExecuteCmd(new VibratoShiftCommand(part, note, NotePresets.Default.DefaultVibrato.VibratoShift));
+                docManager.ExecuteCmd(new VibratoDriftCommand(part, note, NotePresets.Default.DefaultVibrato.VibratoDrift));
                 if (NotePresets.Default.AutoVibratoToggle && note.duration >= NotePresets.Default.AutoVibratoNoteDuration) {
                     docManager.ExecuteCmd(new VibratoLengthCommand(part, note, NotePresets.Default.DefaultVibrato.VibratoLength));
                 } else {
