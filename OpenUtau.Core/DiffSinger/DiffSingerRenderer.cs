@@ -23,6 +23,7 @@ namespace OpenUtau.Core.DiffSinger {
         const string ENE = DiffSingerUtils.ENE;
         const string PEXP = DiffSingerUtils.PEXP;
         const string VoiceColorHeader = DiffSingerUtils.VoiceColorHeader;
+        const string FALC = DiffSingerUtils.FALC;
 
         static readonly HashSet<string> supportedExp = new HashSet<string>(){
             Format.Ustx.DYN,
@@ -35,6 +36,7 @@ namespace OpenUtau.Core.DiffSinger {
             VELC,
             ENE,
             PEXP,
+            FALC,
             Format.Ustx.SHFC,
         };
 
@@ -44,6 +46,7 @@ namespace OpenUtau.Core.DiffSinger {
                 {Format.Ustx.BREC, (x, y) => x + y * 12 / 100},
                 {Format.Ustx.VOIC, (x, y) => x + (y - 100) * 12 / 100},
                 {Format.Ustx.TENC, (x, y) => x + y / 20},
+                {FALC, (x, y) => x * (y / 100)},
             };
 
         static readonly object lockObj = new object();
@@ -331,12 +334,13 @@ namespace OpenUtau.Core.DiffSinger {
                 acousticInputs.Add(NamedOnnxValue.CreateFromTensor("velocity", velocityTensor));
             }
 
-            //Variance: Energy, Breathiness, Voicing and Tension
-            if(
+            //Variance: Energy, Breathiness, Voicing, Tension and Falsetto
+            if (
                 singer.dsConfig.useBreathinessEmbed
                 || singer.dsConfig.useEnergyEmbed
                 || singer.dsConfig.useVoicingEmbed
-                || singer.dsConfig.useTensionEmbed) {
+                || singer.dsConfig.useTensionEmbed
+                || singer.dsConfig.useFalsettoDevEmbed) {
                 var variancePredictor = singer.getVariancePredictor();
                 VarianceResult varianceResult;
                 lock(variancePredictor){
@@ -407,6 +411,31 @@ namespace OpenUtau.Core.DiffSinger {
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("tension",
                         new DenseTensor<float>(tension, new int[] { tension.Length })
                         .Reshape(new int[] { 1, tension.Length })));
+                }
+                if (singer.dsConfig.useFalsettoDevEmbed)
+                {
+                    var falsettoCurve = phrase.curves.FirstOrDefault(curve => curve.Item1 == FALC);
+                    IEnumerable<float> userFalsetto;
+                    if (falsettoCurve != null)
+                    {
+                        userFalsetto = DiffSingerUtils.SampleCurve(phrase, falsettoCurve.Item2,
+                            0, frameMs, totalFrames, headFrames, tailFrames,
+                            x => x).Select(x => (float)x);
+                    }
+                    else
+                    {
+                        userFalsetto = Enumerable.Repeat(0f, totalFrames);
+                    }
+                    if (varianceResult.falsetto == null)
+                    {
+                        throw new KeyNotFoundException(
+                            "The parameter \"falsetto_dev\" required by acoustic model is not found in variance predictions.");
+                    }
+                    var predictedFalsetto = DiffSingerUtils.ResampleCurve(varianceResult.falsetto, totalFrames);
+                    var falsetto = predictedFalsetto.Zip(userFalsetto, varianceDeltaFunctions[FALC]).ToArray(); //???
+                    acousticInputs.Add(NamedOnnxValue.CreateFromTensor("falsetto_dev",
+                        new DenseTensor<float>(falsetto, new int[] { falsetto.Length })
+                        .Reshape(new int[] { 1, falsetto.Length })));
                 }
             }
             Onnx.VerifyInputNames(acousticModel, acousticInputs);
@@ -567,6 +596,16 @@ namespace OpenUtau.Core.DiffSinger {
                     max = 100,
                     defaultValue = 100,
                     isFlag = false
+                },
+                //falsetto
+                new UExpressionDescriptor{
+                    name="falsetto (curve)",
+                    abbr=FALC,
+                    type=UExpressionType.Curve,
+                    min=0,
+                    max=200,
+                    defaultValue=100,
+                    isFlag=false,
                 },
             };
             //speakers
