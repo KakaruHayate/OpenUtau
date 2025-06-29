@@ -69,6 +69,7 @@ namespace OpenUtau.Core.DiffSinger {
         public double mel_fmax = 16000;
         public string mel_base = "10";  // or "e"
         public string mel_scale = "slaney";  // or "htk"
+        public string tension_mode = "legacy";  // or "new"
 
         public float frameMs() {
             return 1000f * hop_size / sample_rate;
