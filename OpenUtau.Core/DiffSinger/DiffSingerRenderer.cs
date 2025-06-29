@@ -159,8 +159,9 @@ namespace OpenUtau.Core.DiffSinger {
             }
 
             //change the variance functions when tension_mode is 'new'
-            var tensionMode = singer.dsConfig?.tension_mode ?? "legacy";
-            var varianceDeltaFunctionsDict = tensionMode == "new"
+            // var tensionMode = singer.dsConfig?.tension_mode ?? "legacy";
+            // var varianceDeltaFunctionsDict = tensionMode == "new"
+            var varianceDeltaFunctionsDict = singer.dsConfig.tension_mode == "new"
                 ? newTensionVarianceDeltaFunctions
                 : varianceDeltaFunctions;
 
@@ -540,8 +541,9 @@ namespace OpenUtau.Core.DiffSinger {
             }
             var variancePredictor = singer.getVariancePredictor()!;
             //change the variance functions when tension_mode is 'new'
-            var tensionMode = singer.dsConfig?.tension_mode ?? "legacy";
-            var varianceDeltaFunctionsDict = tensionMode == "new"
+            // var tensionMode = singer.dsConfig?.tension_mode ?? "legacy";
+            // var varianceDeltaFunctionsDict = tensionMode == "new"
+            var varianceDeltaFunctionsDict = singer.dsConfig.tension_mode == "new"
                 ? newTensionVarianceDeltaFunctions
                 : varianceDeltaFunctions;
             lock (variancePredictor) {
