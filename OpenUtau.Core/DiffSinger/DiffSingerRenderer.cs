@@ -568,7 +568,7 @@ namespace OpenUtau.Core.DiffSinger {
                     (
                         Format.Ustx.TENC, result.tension ?? Array.Empty<float>(), phrase.tension,
                         singer.dsConfig.tension_mode == "new"
-                            ? (Func<float, float>)(x => Math.Clamp(x, 0f, 1f) / 3f)
+                            ? (Func<float, float>)(x => Math.Clamp(x, 0f, 1f) * 3f)
                             : (Func<float, float>)(x => Math.Clamp(x, -10f, 10f) / 20f + 0.5f)
                     ),
                     (
