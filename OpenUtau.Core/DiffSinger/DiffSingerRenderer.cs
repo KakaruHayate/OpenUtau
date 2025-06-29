@@ -568,14 +568,14 @@ namespace OpenUtau.Core.DiffSinger {
                     (
                         Format.Ustx.TENC, result.tension ?? Array.Empty<float>(), phrase.tension,
                         singer.dsConfig.tension_mode == "new"
-                            ? (Func<float, float>)(x => Math.Clamp(x, 0f, 1f))
+                            ? (Func<float, float>)(x => Math.Clamp(x, 0f, 1f) / 3f)
                             : (Func<float, float>)(x => Math.Clamp(x, -10f, 10f) / 20f + 0.5f)
                     ),
                     (
                         FALC, result.falsetto ?? Array.Empty<float>(),
                         phrase.curves.FirstOrDefault(curve => curve.Item1 == FALC)?.Item2
                         ?? Enumerable.Repeat(0f, 2).ToArray(),
-                        x => Math.Clamp(x, 0f, 1f)
+                        x => Math.Clamp(x, 0f, 1f) * 2f / 3f
                     ),
                 }.Select(t => {
                     var abbr = t.Item1;
