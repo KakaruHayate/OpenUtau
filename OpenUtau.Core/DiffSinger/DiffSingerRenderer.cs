@@ -216,23 +216,34 @@ namespace OpenUtau.Core.DiffSinger {
             //durations: phoneme duration in frames
             //f0: pitch curve in Hz by frame
             //speedup: Diffusion render speedup, int
-            var tokens = phrase.phones
-                .Select(p => p.phoneme)
-                .Prepend("SP")
-                .Append("SP")
-                .Select(phoneme => (Int64)singer.PhonemeTokenize(phoneme))
-                .ToList();
-            var durations = phrase.phones
-                .Select(p => (int)Math.Round(p.endMs / frameMs) - (int)Math.Round(p.positionMs / frameMs))//prevent cumulative error
-                .Prepend(headFrames)
-                .Append(tailFrames)
-                .ToList();
+            bool shouldPrependSP = phrase.phones.Length == 0 || phrase.phones.First().phoneme != "SP";
+            bool shouldAppendSP = phrase.phones.Length == 0 || phrase.phones.Last().phoneme != "SP";
+
+            IEnumerable<string> phonemes = phrase.phones.Select(p => p.phoneme);
+            IEnumerable<int> phoneDurations = phrase.phones.Select(p => (int)Math.Round(p.endMs / frameMs) - (int)Math.Round(p.positionMs / frameMs));
+            int headFramesForCurve = 0;
+            int tailFramesForCurve = 0;
+            if (shouldPrependSP)
+            {
+                phonemes = phonemes.Prepend("SP");
+                phoneDurations = phoneDurations.Prepend(headFrames);
+                headFramesForCurve = headFrames;
+            }
+            if (shouldAppendSP)
+            {
+                phonemes = phonemes.Append("SP");
+                phoneDurations = phoneDurations.Append(tailFrames);
+                tailFramesForCurve = tailFrames;
+            }
+
+            var tokens = phonemes.Select(phoneme => (Int64)singer.PhonemeTokenize(phoneme)).ToList();
+            var durations = phoneDurations.ToList();
             int totalFrames = durations.Sum();
-            float[] f0 = DiffSingerUtils.SampleCurve(phrase, phrase.pitches, 0, frameMs, totalFrames, headFrames, tailFrames, 
+            float[] f0 = DiffSingerUtils.SampleCurve(phrase, phrase.pitches, 0, frameMs, totalFrames, headFramesForCurve, tailFramesForCurve, 
                 x => MusicMath.ToneToFreq(x * 0.01))
                 .Select(f => (float)f).ToArray();
             float[] shiftedF0 = f0.Zip(DiffSingerUtils.SampleCurve(phrase, phrase.toneShift, 0, frameMs, totalFrames,
-                headFrames, tailFrames, x => x),
+                headFramesForCurve, tailFramesForCurve, x => x),
                 (x, d) => x * (float) Math.Pow(2, d / 1200)).ToArray();
 
             var acousticInputs = new List<NamedOnnxValue>();
@@ -279,22 +290,27 @@ namespace OpenUtau.Core.DiffSinger {
                     new DenseTensor<long>(new long[] { speedup }, new int[] { 1 }, false)));
             }
             //Language id
-            if(singer.dsConfig.use_lang_id){
-                var langIdByPhone = phrase.phones
-                    .Select(p => (long)singer.languageIds.GetValueOrDefault(
-                        DiffSingerUtils.PhonemeLanguage(p.phoneme),0
-                        ))
-                    .Prepend(0)
-                    .Append(0)
-                    .ToArray();
+            if (singer.dsConfig.use_lang_id)
+            {
+                IEnumerable<long> langIds = phrase.phones.Select(p => (long)singer.languageIds.GetValueOrDefault(
+                    DiffSingerUtils.PhonemeLanguage(p.phoneme), 0));
+                if (shouldPrependSP)
+                {
+                    langIds = langIds.Prepend(0);
+                }
+                if (shouldAppendSP)
+                {
+                    langIds = langIds.Append(0);
+                }
+                var langIdByPhone = langIds.ToArray();
                 var langIdTensor = new DenseTensor<Int64>(langIdByPhone, new int[] { langIdByPhone.Length }, false)
                     .Reshape(new int[] { 1, langIdByPhone.Length });
                 acousticInputs.Add(NamedOnnxValue.CreateFromTensor("languages", langIdTensor));
             }
             //speaker
-            if(singer.dsConfig.speakers != null) {
+            if (singer.dsConfig.speakers != null) {
                 var speakerEmbedManager = singer.getSpeakerEmbedManager();
-                var spkEmbedTensor = speakerEmbedManager.PhraseSpeakerEmbedByFrame(phrase, durations, frameMs, totalFrames, headFrames, tailFrames);
+                var spkEmbedTensor = speakerEmbedManager.PhraseSpeakerEmbedByFrame(phrase, durations, frameMs, totalFrames, headFramesForCurve, tailFramesForCurve);
                 acousticInputs.Add(NamedOnnxValue.CreateFromTensor("spk_embed", spkEmbedTensor));
             }
             //gender
@@ -304,7 +320,7 @@ namespace OpenUtau.Core.DiffSinger {
                 var positiveScale = (range[1]==0) ? 0 : (12/range[1]/100);
                 var negativeScale = (range[0]==0) ? 0 : (-12/range[0]/100);
                 float[] gender = DiffSingerUtils.SampleCurve(phrase, phrase.gender,
-                    0, frameMs, totalFrames, headFrames, tailFrames,
+                    0, frameMs, totalFrames, headFramesForCurve, tailFramesForCurve,
                     x=> (x<0)?(-x * positiveScale):(-x * negativeScale))
                     .Select(f => (float)f).ToArray();
                 var genderTensor = new DenseTensor<float>(gender, new int[] { gender.Length })
@@ -320,7 +336,7 @@ namespace OpenUtau.Core.DiffSinger {
                 float[] velocity;
                 if (velocityCurve != null) {
                     velocity = DiffSingerUtils.SampleCurve(phrase, velocityCurve.Item2,
-                        1, frameMs, totalFrames, headFrames, tailFrames,
+                        1, frameMs, totalFrames, headFramesForCurve, tailFramesForCurve,
                         x => Math.Pow(2, (x - 100) / 100))
                         .Select(f => (float)f).ToArray();
                 } else {
@@ -351,7 +367,7 @@ namespace OpenUtau.Core.DiffSinger {
                     IEnumerable<float> userEnergy;
                     if(energyCurve!=null){
                         userEnergy = DiffSingerUtils.SampleCurve(phrase, energyCurve.Item2,
-                            0, frameMs, totalFrames, headFrames, tailFrames,
+                            0, frameMs, totalFrames, headFramesForCurve, tailFramesForCurve,
                             x => x).Select(x => (float) x);
                     } else{
                         userEnergy = Enumerable.Repeat(0f, totalFrames);
@@ -368,7 +384,7 @@ namespace OpenUtau.Core.DiffSinger {
                 }
                 if(singer.dsConfig.useBreathinessEmbed){
                     var userBreathiness = DiffSingerUtils.SampleCurve(phrase, phrase.breathiness,
-                        0, frameMs, totalFrames, headFrames, tailFrames,
+                        0, frameMs, totalFrames, headFramesForCurve, tailFramesForCurve,
                         x => x).Select(x => (float) x);
                     if (varianceResult.breathiness == null) {
                         throw new KeyNotFoundException(
@@ -382,7 +398,7 @@ namespace OpenUtau.Core.DiffSinger {
                 }
                 if(singer.dsConfig.useVoicingEmbed){
                     var userVoicing = DiffSingerUtils.SampleCurve(phrase, phrase.voicing,
-                        0, frameMs, totalFrames, headFrames, tailFrames,
+                        0, frameMs, totalFrames, headFramesForCurve, tailFramesForCurve,
                         x => x).Select(x => (float) x);
                     if (varianceResult.voicing == null) {
                         throw new KeyNotFoundException(
@@ -396,7 +412,7 @@ namespace OpenUtau.Core.DiffSinger {
                 }
                 if(singer.dsConfig.useTensionEmbed){
                     var userTension = DiffSingerUtils.SampleCurve(phrase, phrase.tension,
-                        0, frameMs, totalFrames, headFrames, tailFrames,
+                        0, frameMs, totalFrames, headFramesForCurve, tailFramesForCurve,
                         x => x).Select(x => (float) x);
                     if (varianceResult.tension == null) {
                         throw new KeyNotFoundException(

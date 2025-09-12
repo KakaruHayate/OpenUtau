@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -83,38 +83,61 @@ namespace OpenUtau.Core.DiffSinger
         }
 
         //used by variance, pitch and acoustic
-        public Tensor<float> PhraseSpeakerEmbedByFrame(RenderPhrase phrase, IList<int> durations, float frameMs, int totalFrames, int headFrames, int tailFrames){
+        public Tensor<float> PhraseSpeakerEmbedByFrame(RenderPhrase phrase, IList<int> durations, float frameMs, int totalFrames, int headFrames, int tailFrames)
+        {
             var singer = phrase.singer;
             var hiddenSize = dsConfig.hiddenSize;
             var speakerEmbeds = getSpeakerEmbeds();
+
+            // Handle empty phrase case to prevent exceptions
+            if (phrase.phones.Length == 0)
+            {
+                var spkDefault = np.dot(np.ones<float>(totalFrames, 1), loadSpeakerEmbed(dsConfig.speakers[0]).reshape(1, -1));
+                return new DenseTensor<float>(spkDefault.ToArray<float>(), new int[] { totalFrames, hiddenSize })
+                    .Reshape(new int[] { 1, totalFrames, hiddenSize });
+            }
+
+            // NEW LOGIC: Determine if padding was actually added based on durations length
+            bool hasPrependedSP = durations.Count > phrase.phones.Length;
+            int duration_offset = hasPrependedSP ? 1 : 0;
+
             //get default speaker for each phoneme
             var headDefaultSpk = getSpeakerIndexBySuffix(phrase.phones[0].suffix);
             var tailDefaultSpk = getSpeakerIndexBySuffix(phrase.phones[^1].suffix);
             var defaultSpkByFrame = Enumerable.Repeat(headDefaultSpk, headFrames).ToList();
             defaultSpkByFrame.AddRange(Enumerable.Range(0, phrase.phones.Length)
-                .SelectMany(phIndex => Enumerable.Repeat(getSpeakerIndexBySuffix(phrase.phones[phIndex].suffix), durations[phIndex+1])));
+                .SelectMany(phIndex => Enumerable.Repeat(
+                    getSpeakerIndexBySuffix(phrase.phones[phIndex].suffix),
+                    durations[phIndex + duration_offset]))); // <-- Use offset here
             defaultSpkByFrame.AddRange(Enumerable.Repeat(tailDefaultSpk, tailFrames));
+
             //get speaker curves
             NDArray spkCurves = np.zeros<float>(totalFrames, dsConfig.speakers.Count);
-            foreach(var curve in phrase.curves) {
-                if(IsVoiceColorCurve(curve.Item1,out int subBankId) && subBankId < singer.Subbanks.Count) {
+            foreach (var curve in phrase.curves)
+            {
+                if (IsVoiceColorCurve(curve.Item1, out int subBankId) && subBankId < singer.Subbanks.Count)
+                {
                     var spkId = getSpeakerIndexBySuffix(singer.Subbanks[subBankId].Suffix);
-                    spkCurves[":", spkId] += DiffSingerUtils.SampleCurve(phrase, curve.Item2, 0, 
+                    spkCurves[":", spkId] += DiffSingerUtils.SampleCurve(phrase, curve.Item2, 0,
                         frameMs, totalFrames, headFrames, tailFrames, x => x * 0.01f)
                         .Select(f => (float)f).ToArray();
                 }
             }
-            foreach(int frameId in Enumerable.Range(0,totalFrames)) {
+            foreach (int frameId in Enumerable.Range(0, totalFrames))
+            {
                 //standarization
                 var spkSum = spkCurves[frameId, ":"].ToArray<float>().Sum();
-                if (spkSum > 1) {
+                if (spkSum > 1)
+                {
                     spkCurves[frameId, ":"] /= spkSum;
-                } else {
+                }
+                else
+                {
                     spkCurves[frameId, defaultSpkByFrame[frameId]] += 1 - spkSum;
                 }
             }
             var spkEmbedResult = np.dot(spkCurves, speakerEmbeds.T);
-            var spkEmbedTensor = new DenseTensor<float>(spkEmbedResult.ToArray<float>(), 
+            var spkEmbedTensor = new DenseTensor<float>(spkEmbedResult.ToArray<float>(),
                 new int[] { totalFrames, hiddenSize })
                 .Reshape(new int[] { 1, totalFrames, hiddenSize });
             return spkEmbedTensor;

@@ -29,27 +29,52 @@ namespace OpenUtau.Core.DiffSinger {
             
             var notes = phrase.notes;
             var phones = phrase.phones;
-            
-            text = notes.Select(n => n.lyric)
-                .Where(s=>!s.StartsWith("+"))
-                .Prepend("SP")
-                .Append("SP")
-                .ToArray();
-            ph_seq = phones
-                .Select(p => p.phoneme)
-                .Prepend("SP")
-                .Append("SP")
-                .ToArray();
-            phDurMs = phones
-                .Select(p => p.durationMs)
-                .Prepend(headMs)
-                .Append(tailMs)
-                .ToArray();
-            note_slur = notes
-                .Select(n => n.lyric.StartsWith("+") ? 1 : 0)
-                .Prepend(0)
-                .Append(0)
-                .ToArray();
+
+            bool shouldPrependSP = phones.Length == 0 || phones.First().phoneme != "SP";
+            bool shouldAppendSP = phones.Length == 0 || phones.Last().phoneme != "SP";
+
+            const double headMsDouble = headMs;
+            const double tailMsDouble = tailMs;
+
+            double headMsForCurve = shouldPrependSP ? headMsDouble : 0;
+            double tailMsForCurve = shouldAppendSP ? tailMsDouble : 0;
+
+            IEnumerable<string> text_items = notes.Select(n => n.lyric).Where(s => !s.StartsWith("+"));
+            if (shouldPrependSP)
+            {
+                text_items = text_items.Prepend("SP");
+            }
+            if (shouldAppendSP)
+            {
+                text_items = text_items.Append("SP");
+            }
+            text = text_items.ToArray();
+
+            IEnumerable<string> phonemes = phones.Select(p => p.phoneme);
+            IEnumerable<double> phoneDurationsMs = phones.Select(p => p.durationMs);
+            if (shouldPrependSP)
+            {
+                phonemes = phonemes.Prepend("SP");
+                phoneDurationsMs = phoneDurationsMs.Prepend(headMsDouble);
+            }
+            if (shouldAppendSP)
+            {
+                phonemes = phonemes.Append("SP");
+                phoneDurationsMs = phoneDurationsMs.Append(tailMsDouble);
+            }
+            ph_seq = phonemes.ToArray();
+            phDurMs = phoneDurationsMs.ToArray();
+
+            IEnumerable<int> note_slur_items = notes.Select(n => n.lyric.StartsWith("+") ? 1 : 0);
+            if (shouldPrependSP)
+            {
+                note_slur_items = note_slur_items.Prepend(0);
+            }
+            if (shouldAppendSP)
+            {
+                note_slur_items = note_slur_items.Append(0);
+            }
+            note_slur = note_slur_items.ToArray();
             //ph_num
             var phNumList = new List<int>();
             int ep = 4;//the max error between note position and phoneme position is 4 ticks
@@ -64,37 +89,49 @@ namespace OpenUtau.Core.DiffSinger {
                 prevNotePhId = phId;
             }
             phNumList.Add(phCount - prevNotePhId);
-            phNumList.Add(1);//tail AP
-            ++phNumList[0];//head AP
+            if (shouldPrependSP)
+            {
+                phNumList[0]++;
+            }
+            if (shouldAppendSP)
+            {
+                phNumList.Add(1);
+            }
             ph_num = phNumList.ToArray();
 
-            if(v2){
-                noteSeq = notes
-                    .Select(n => (n.lyric == "SP" || n.lyric == "AP") ? 0 : n.tone)
-                    .Prepend(0)
-                    .Append(0)
-                    .ToArray();
-            }else{
-                noteSeq = phones
-                    .Select(p => (p.phoneme == "SP" || p.phoneme == "AP") ? 0 : p.tone)
-                    .Prepend(0)
-                    .Append(0)
-                    .ToArray();
+            if (v2)
+            {
+                IEnumerable<int> noteSeq_items = notes.Select(n => (n.lyric == "SP" || n.lyric == "AP") ? 0 : n.tone);
+                if (shouldPrependSP)
+                {
+                    noteSeq_items = noteSeq_items.Prepend(0);
+                }
+                if (shouldAppendSP)
+                {
+                    noteSeq_items = noteSeq_items.Append(0);
+                }
+                noteSeq = noteSeq_items.ToArray();
+            }
+            else
+            {
+                noteSeq = ph_seq.Select(p => (p == "SP" || p == "AP") ? 0 : phones.FirstOrDefault(ph => ph.phoneme == p)?.tone ?? 0).ToArray();
+                var phoneTones = phones.ToDictionary(p => p.phoneme, p => p.tone);
+                noteSeq = ph_seq.Select(p => (p == "SP" || p == "AP") ? 0 : (phoneTones.ContainsKey(p) ? phoneTones[p] : 0)).ToArray();
             }
             noteDurMs = notes
                 .Select(n => n.durationMs)
-                .Prepend(headMs+(notes[0].positionMs-phones[0].positionMs))
-                .Append(tailMs)
+                .Prepend(headMsForCurve + (notes[0].positionMs-phones[0].positionMs))
+                .Append(tailMsForCurve)
                 .ToArray();
             
             frameMs = 10;
-            
-            int headFrames = (int)(headMs / frameMs);
-            int tailFrames = (int)(tailMs / frameMs);
+
+            int headFrames = (int)(headMsForCurve / frameMs);
+            int tailFrames = (int)(tailMsForCurve / frameMs);
             var totalFrames = (int)(phDurMs.Sum() / frameMs);
 
             //f0
-            if(exportPitch){
+            if (exportPitch){
                 f0_seq = DiffSingerUtils.SampleCurve(phrase, phrase.pitches, 
                     0, frameMs, totalFrames, headFrames, tailFrames, 
                     x => MusicMath.ToneToFreq(x * 0.01));
@@ -125,7 +162,7 @@ namespace OpenUtau.Core.DiffSinger {
                 }
             }
 
-            offsetMs = phrase.phones[0].positionMs - headMs;
+            offsetMs = phrase.phones[0].positionMs - headMsForCurve;
         }
         
         public RawDiffSingerScript toRaw() {
