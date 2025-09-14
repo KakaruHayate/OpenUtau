@@ -29,27 +29,80 @@ namespace OpenUtau.Core.DiffSinger {
             
             var notes = phrase.notes;
             var phones = phrase.phones;
-            
-            text = notes.Select(n => n.lyric)
-                .Where(s=>!s.StartsWith("+"))
-                .Prepend("SP")
-                .Append("SP")
-                .ToArray();
-            ph_seq = phones
-                .Select(p => p.phoneme)
-                .Prepend("SP")
-                .Append("SP")
-                .ToArray();
-            phDurMs = phones
-                .Select(p => p.durationMs)
-                .Prepend(headMs)
-                .Append(tailMs)
-                .ToArray();
-            note_slur = notes
-                .Select(n => n.lyric.StartsWith("+") ? 1 : 0)
-                .Prepend(0)
-                .Append(0)
-                .ToArray();
+            // -- Start of modification --
+            bool needsHeadPadding = phones[0].phoneme != "SP";
+            bool needsTailPadding = phones[^1].phoneme != "SP";
+            // -- End of modification --
+            //text = notes.Select(n => n.lyric)
+            //    .Where(s=>!s.StartsWith("+"))
+            //    .Prepend("SP")
+            //    .Append("SP")
+            //    .ToArray();
+            // -- Start of modification --
+            IEnumerable<string> textItems = notes.Select(n => n.lyric)
+                .Where(s => !s.StartsWith("+"));
+            if (needsHeadPadding)
+            {
+                textItems = textItems.Prepend("SP");
+            }
+            if (needsTailPadding)
+            {
+                textItems = textItems.Append("SP");
+            }
+            text = textItems.ToArray();
+            // -- End of modification --
+            //ph_seq = phones
+            //    .Select(p => p.phoneme)
+            //    .Prepend("SP")
+            //    .Append("SP")
+            //    .ToArray();
+            // -- Start of modification --
+            IEnumerable<string> ph_seq_items = phones.Select(p => p.phoneme);
+            if (needsHeadPadding)
+            {
+                ph_seq_items = ph_seq_items.Prepend("SP");
+            }
+            if (needsTailPadding)
+            {
+                ph_seq_items = ph_seq_items.Append("SP");
+            }
+            ph_seq = ph_seq_items.ToArray();
+            // -- End of modification --
+            //phDurMs = phones
+            //    .Select(p => p.durationMs)
+            //    .Prepend(headMs)
+            //    .Append(tailMs)
+            //    .ToArray();
+            // -- Start of modification --
+            IEnumerable<double> phDurMs_items = phones.Select(p => p.durationMs);
+            if (needsHeadPadding)
+            {
+                phDurMs_items = phDurMs_items.Prepend(headMs);
+            }
+            if (needsTailPadding)
+            {
+                phDurMs_items = phDurMs_items.Append(tailMs);
+            }
+            phDurMs = phDurMs_items.ToArray();
+            // -- End of modification --
+            //note_slur = notes
+            //    .Select(n => n.lyric.StartsWith("+") ? 1 : 0)
+            //    .Prepend(0)
+            //    .Append(0)
+            //    .ToArray();
+            // -- Start of modification --
+            IEnumerable<int> note_slur_items = notes
+                .Select(n => n.lyric.StartsWith("+") ? 1 : 0);
+            if (needsHeadPadding)
+            {
+                note_slur_items = note_slur_items.Prepend(0);
+            }
+            if (needsTailPadding)
+            {
+                note_slur_items = note_slur_items.Append(0);
+            }
+            note_slur = note_slur_items.ToArray();
+            // -- End of modification --
             //ph_num
             var phNumList = new List<int>();
             int ep = 4;//the max error between note position and phoneme position is 4 ticks
@@ -68,29 +121,75 @@ namespace OpenUtau.Core.DiffSinger {
             ++phNumList[0];//head AP
             ph_num = phNumList.ToArray();
 
-            if(v2){
-                noteSeq = notes
-                    .Select(n => (n.lyric == "SP" || n.lyric == "AP") ? 0 : n.tone)
-                    .Prepend(0)
-                    .Append(0)
-                    .ToArray();
-            }else{
-                noteSeq = phones
-                    .Select(p => (p.phoneme == "SP" || p.phoneme == "AP") ? 0 : p.tone)
-                    .Prepend(0)
-                    .Append(0)
-                    .ToArray();
+            //if(v2){
+            //    noteSeq = notes
+            //        .Select(n => (n.lyric == "SP" || n.lyric == "AP") ? 0 : n.tone)
+            //        .Prepend(0)
+            //        .Append(0)
+            //        .ToArray();
+            //}else{
+            //    noteSeq = phones
+            //        .Select(p => (p.phoneme == "SP" || p.phoneme == "AP") ? 0 : p.tone)
+            //        .Prepend(0)
+            //        .Append(0)
+            //        .ToArray();
+            //}
+            // -- Start of modification --
+            if (v2)
+            {
+                IEnumerable<int> noteSeqItems = notes
+                    .Select(n => (n.lyric == "SP" || n.lyric == "AP") ? 0 : n.tone);
+                if (needsHeadPadding)
+                {
+                    noteSeqItems = noteSeqItems.Prepend(0);
+                }
+                if (needsTailPadding)
+                {
+                    noteSeqItems = noteSeqItems.Append(0);
+                }
+                noteSeq = noteSeqItems.ToArray();
             }
-            noteDurMs = notes
-                .Select(n => n.durationMs)
-                .Prepend(headMs+(notes[0].positionMs-phones[0].positionMs))
-                .Append(tailMs)
-                .ToArray();
-            
+            else
+            {
+                IEnumerable<int> noteSeqItems = phones
+                    .Select(p => (p.phoneme == "SP" || p.phoneme == "AP") ? 0 : p.tone);
+                if (needsHeadPadding)
+                {
+                    noteSeqItems = noteSeqItems.Prepend(0);
+                }
+                if (needsTailPadding)
+                {
+                    noteSeqItems = noteSeqItems.Append(0);
+                }
+                noteSeq = noteSeqItems.ToArray();
+            }
+            // -- End of modification --
+            //noteDurMs = notes
+            //    .Select(n => n.durationMs)
+            //    .Prepend(headMs+(notes[0].positionMs-phones[0].positionMs))
+            //    .Append(tailMs)
+            //    .ToArray();
+            // -- Start of modification --
+            IEnumerable<double> noteDurMs_items = notes.Select(n => n.durationMs);
+            if (needsHeadPadding)
+            {
+                noteDurMs_items = noteDurMs_items.Prepend(headMs + (notes[0].positionMs - phones[0].positionMs));
+            }
+            if (needsTailPadding)
+            {
+                noteDurMs_items = noteDurMs_items.Append(tailMs);
+            }
+            noteDurMs = noteDurMs_items.ToArray();
+            // -- End of modification --
+
             frameMs = 10;
-            
-            int headFrames = (int)(headMs / frameMs);
-            int tailFrames = (int)(tailMs / frameMs);
+
+            //int headFrames = (int)(headMs / frameMs);
+            //int tailFrames = (int)(tailMs / frameMs);
+            // -- Start of modification --
+            int headFrames = needsHeadPadding ? (int)(headMs / frameMs) : 0;
+            int tailFrames = needsTailPadding ? (int)(tailMs / frameMs) : 0;
+            // -- End of modification --
             var totalFrames = (int)(phDurMs.Sum() / frameMs);
 
             //f0

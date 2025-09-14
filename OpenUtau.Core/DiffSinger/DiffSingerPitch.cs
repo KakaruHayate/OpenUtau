@@ -107,10 +107,28 @@ namespace OpenUtau.Core.DiffSinger
         }
         
         public RenderPitchResult Process(RenderPhrase phrase){
-            var startMs = Math.Min(phrase.notes[0].positionMs, phrase.phones[0].positionMs) - headMs;
-            var endMs = phrase.notes[^1].endMs + tailMs;
-            int headFrames = (int)Math.Round(headMs / frameMs);
-            int tailFrames = (int)Math.Round(tailMs / frameMs);
+            //var startMs = Math.Min(phrase.notes[0].positionMs, phrase.phones[0].positionMs) - headMs;
+            //var endMs = phrase.notes[^1].endMs + tailMs;
+            //int headFrames = (int)Math.Round(headMs / frameMs);
+            //int tailFrames = (int)Math.Round(tailMs / frameMs);
+            // -- Start of modification --
+            bool needsHeadPadding = phrase.phones[0].phoneme != "SP";
+            bool needsTailPadding = phrase.phones[^1].phoneme != "SP";
+
+            var startMs = Math.Min(phrase.notes[0].positionMs, phrase.phones[0].positionMs);
+            if (needsHeadPadding)
+            {
+                startMs -= headMs;
+            }
+            var endMs = phrase.notes[^1].endMs;
+            if (needsTailPadding)
+            {
+                endMs += tailMs;
+            }
+
+            int headFrames = needsHeadPadding ? (int)Math.Round(headMs / frameMs) : 0;
+            int tailFrames = needsTailPadding ? (int)Math.Round(tailMs / frameMs) : 0;
+            // -- End of modification --
             //Check if all phonemes are defined in dsdict.yaml (for their types)
             foreach (var phone in phrase.phones) {
                 if (!g2p.IsValidSymbol(phone.phoneme)) {
@@ -120,17 +138,42 @@ namespace OpenUtau.Core.DiffSinger
             }
             //Linguistic Encoder
             var linguisticInputs = new List<NamedOnnxValue>();
-            var tokens = phrase.phones
-                .Select(p => p.phoneme)
-                .Prepend("SP")
-                .Append("SP")
-                .Select(x => (Int64)PhonemeTokenize(x))
-                .ToArray();
-            var ph_dur = phrase.phones
-                .Select(p=>(int)Math.Round(p.endMs/frameMs) - (int)Math.Round(p.positionMs/frameMs))
-                .Prepend(headFrames)
-                .Append(tailFrames)
-                .ToArray();
+            //var tokens = phrase.phones
+            //    .Select(p => p.phoneme)
+            //    .Prepend("SP")
+            //    .Append("SP")
+            //    .Select(x => (Int64)PhonemeTokenize(x))
+            //    .ToArray();
+            // -- Start of modification --
+            IEnumerable<string> phonemes = phrase.phones.Select(p => p.phoneme);
+            if (needsHeadPadding)
+            {
+                phonemes = phonemes.Prepend("SP");
+            }
+            if (needsTailPadding)
+            {
+                phonemes = phonemes.Append("SP");
+            }
+            var tokens = phonemes.Select(x => (Int64)PhonemeTokenize(x)).ToArray();
+            // -- End of modification --
+            //var ph_dur = phrase.phones
+            //    .Select(p=>(int)Math.Round(p.endMs/frameMs) - (int)Math.Round(p.positionMs/frameMs))
+            //    .Prepend(headFrames)
+            //    .Append(tailFrames)
+            //    .ToArray();
+            // -- Start of modification --
+            IEnumerable<int> ph_dur_items = phrase.phones
+                .Select(p => (int)Math.Round(p.endMs / frameMs) - (int)Math.Round(p.positionMs / frameMs));
+            if (needsHeadPadding)
+            {
+                ph_dur_items = ph_dur_items.Prepend(headFrames);
+            }
+            if (needsTailPadding)
+            {
+                ph_dur_items = ph_dur_items.Append(tailFrames);
+            }
+            var ph_dur = ph_dur_items.ToArray();
+            // -- End of modification --
             int totalFrames = ph_dur.Sum();
             linguisticInputs.Add(NamedOnnxValue.CreateFromTensor("tokens",
                 new DenseTensor<Int64>(tokens, new int[] { tokens.Length }, false)
@@ -143,15 +186,28 @@ namespace OpenUtau.Core.DiffSinger
                 if(vowelIds.Length == 0){
                     vowelIds = new int[]{phrase.phones.Length-1};
                 }
-                var word_div = vowelIds.Zip(vowelIds.Skip(1),(a,b)=>(Int64)(b-a))
-                    .Prepend(vowelIds[0] + 1)
-                    .Append(phrase.phones.Length - vowelIds[^1] + 1)
-                    .ToArray();
-                var word_dur = vowelIds.Zip(vowelIds.Skip(1),
-                        (a,b)=>(Int64)(phrase.phones[b-1].endMs/frameMs) - (Int64)(phrase.phones[a].positionMs/frameMs))
-                    .Prepend((Int64)(phrase.phones[vowelIds[0]].positionMs/frameMs) - (Int64)(phrase.phones[0].positionMs/frameMs) + headFrames)
-                    .Append((Int64)(phrase.notes[^1].endMs/frameMs) - (Int64)(phrase.phones[vowelIds[^1]].positionMs/frameMs) + tailFrames)
-                    .ToArray();
+                //var word_div = vowelIds.Zip(vowelIds.Skip(1),(a,b)=>(Int64)(b-a))
+                //    .Prepend(vowelIds[0] + 1)
+                //    .Append(phrase.phones.Length - vowelIds[^1] + 1)
+                //    .ToArray();
+                //var word_dur = vowelIds.Zip(vowelIds.Skip(1),
+                //        (a,b)=>(Int64)(phrase.phones[b-1].endMs/frameMs) - (Int64)(phrase.phones[a].positionMs/frameMs))
+                //    .Prepend((Int64)(phrase.phones[vowelIds[0]].positionMs/frameMs) - (Int64)(phrase.phones[0].positionMs/frameMs) + headFrames)
+                //    .Append((Int64)(phrase.notes[^1].endMs/frameMs) - (Int64)(phrase.phones[vowelIds[^1]].positionMs/frameMs) + tailFrames)
+                //    .ToArray();
+                // -- Start of modification --
+                var word_div_items = vowelIds.Zip(vowelIds.Skip(1), (a, b) => (Int64)(b - a)).ToList();
+                word_div_items.Insert(0, vowelIds[0] + (needsHeadPadding ? 1 : 0));
+                word_div_items.Add(phrase.phones.Length - vowelIds[^1] + (needsTailPadding ? 1 : 0));
+                var word_div = word_div_items.ToArray();
+
+                var word_dur_items = vowelIds.Zip(vowelIds.Skip(1),
+                        (a, b) => (Int64)(phrase.phones[b - 1].endMs / frameMs) - (Int64)(phrase.phones[a].positionMs / frameMs))
+                    .ToList();
+                word_dur_items.Insert(0, (Int64)(phrase.phones[vowelIds[0]].positionMs / frameMs) - (Int64)(phrase.phones[0].positionMs / frameMs) + headFrames);
+                word_dur_items.Add((Int64)(phrase.notes[^1].endMs / frameMs) - (Int64)(phrase.phones[vowelIds[^1]].positionMs / frameMs) + tailFrames);
+                var word_dur = word_dur_items.ToArray();
+                // -- End of modification --
                 linguisticInputs.Add(NamedOnnxValue.CreateFromTensor("word_div",
                     new DenseTensor<Int64>(word_div, new int[] { word_div.Length }, false)
                     .Reshape(new int[] { 1, word_div.Length })));
@@ -165,19 +221,39 @@ namespace OpenUtau.Core.DiffSinger
                     .Reshape(new int[] { 1, ph_dur.Length })));
             }
             //Language id
-            if(dsConfig.use_lang_id){
-                var langIdByPhone = phrase.phones
+            //if(dsConfig.use_lang_id){
+            //    var langIdByPhone = phrase.phones
+            //        .Select(p => (long)languageIds.GetValueOrDefault(
+            //            DiffSingerUtils.PhonemeLanguage(p.phoneme),0
+            //            ))
+            //        .Prepend(0)
+            //        .Append(0)
+            //        .ToArray();
+            //    var langIdTensor = new DenseTensor<Int64>(langIdByPhone, new int[] { langIdByPhone.Length }, false)
+            //        .Reshape(new int[] { 1, langIdByPhone.Length });
+            //    linguisticInputs.Add(NamedOnnxValue.CreateFromTensor("languages", langIdTensor));
+            //}
+            if (dsConfig.use_lang_id)
+            {
+                // -- Start of modification --
+                IEnumerable<long> langIdByPhoneItems = phrase.phones
                     .Select(p => (long)languageIds.GetValueOrDefault(
-                        DiffSingerUtils.PhonemeLanguage(p.phoneme),0
-                        ))
-                    .Prepend(0)
-                    .Append(0)
-                    .ToArray();
+                        DiffSingerUtils.PhonemeLanguage(p.phoneme), 0
+                        ));
+                if (needsHeadPadding)
+                {
+                    langIdByPhoneItems = langIdByPhoneItems.Prepend(0);
+                }
+                if (needsTailPadding)
+                {
+                    langIdByPhoneItems = langIdByPhoneItems.Append(0);
+                }
+                var langIdByPhone = langIdByPhoneItems.ToArray();
+                // -- End of modification --
                 var langIdTensor = new DenseTensor<Int64>(langIdByPhone, new int[] { langIdByPhone.Length }, false)
                     .Reshape(new int[] { 1, langIdByPhone.Length });
                 linguisticInputs.Add(NamedOnnxValue.CreateFromTensor("languages", langIdTensor));
             }
-
             Onnx.VerifyInputNames(linguisticModel, linguisticInputs);
             var linguisticCache = Preferences.Default.DiffSingerTensorCache
                 ? new DiffSingerCache(linguisticHash, linguisticInputs)
@@ -196,10 +272,18 @@ namespace OpenUtau.Core.DiffSinger
                 .Where(o => o.Name == "x_masks")
                 .First()
                 .AsTensor<bool>();
-            
+
             //Pitch Predictor   
-            var note_rest = new List<bool>{true};
-            bool prevNoteRest = true;
+            //var note_rest = new List<bool>{true};
+            //bool prevNoteRest = true;
+            // -- Start of modification --
+            var note_rest = new List<bool>();
+            if (needsHeadPadding)
+            {
+                note_rest.Add(true);
+            }
+            bool prevNoteRest = !note_rest.Any() || note_rest.Last(); // Handles empty list case
+            // -- End of modification --
             int phIndex = 0;
             foreach(var note in phrase.notes) {
                 //Slur notes follow the previous note's rest status
@@ -223,10 +307,18 @@ namespace OpenUtau.Core.DiffSinger
                 prevNoteRest = isRest;
             }
 
-            var note_midi = phrase.notes
-                .Select(n=>(float)n.tone)
-                .Prepend((float)phrase.notes[0].tone)
-                .ToArray();
+            //var note_midi = phrase.notes
+            //    .Select(n=>(float)n.tone)
+            //    .Prepend((float)phrase.notes[0].tone)
+            //    .ToArray();
+            // -- Start of modification --
+            IEnumerable<float> note_midi_items = phrase.notes.Select(n => (float)n.tone);
+            if (needsHeadPadding)
+            {
+                note_midi_items = note_midi_items.Prepend((float)phrase.notes[0].tone);
+            }
+            var note_midi = note_midi_items.ToArray();
+            // -- End of modification --
             //get the index of groups of consecutive rest notes
             var restGroups = new List<Tuple<int,int>>();
             for (var i = 0; i < note_rest.Count; ++i) {
@@ -265,12 +357,30 @@ namespace OpenUtau.Core.DiffSinger
 
             //use the delta of the positions of the next note and the current note
             //to prevent incorrect timing when there is a small space between two notes
-            var note_dur = phrase.notes.Zip(phrase.notes.Skip(1),
-                    (curr,next)=> (int)Math.Round(next.positionMs/frameMs) - (int)Math.Round(curr.positionMs/frameMs))
-                .Prepend((int)Math.Round(phrase.notes[0].positionMs/frameMs) - (int)Math.Round(startMs/frameMs))
-                .Append(0)
-                .ToList();
-            note_dur[^1]=totalFrames-note_dur.Sum();
+            //var note_dur = phrase.notes.Zip(phrase.notes.Skip(1),
+            //        (curr,next)=> (int)Math.Round(next.positionMs/frameMs) - (int)Math.Round(curr.positionMs/frameMs))
+            //    .Prepend((int)Math.Round(phrase.notes[0].positionMs/frameMs) - (int)Math.Round(startMs/frameMs))
+            //    .Append(0)
+            //    .ToList();
+            //note_dur[^1]=totalFrames-note_dur.Sum();
+            // -- Start of modification --
+            List<int> note_dur;
+            var note_dur_items = phrase.notes.Zip(phrase.notes.Skip(1),
+                    (curr, next) => (int)Math.Round(next.positionMs / frameMs) - (int)Math.Round(curr.positionMs / frameMs));
+
+            if (needsHeadPadding)
+            {
+                var first_note_dur = (int)Math.Round(phrase.notes[0].positionMs / frameMs) - (int)Math.Round(startMs / frameMs);
+                note_dur = note_dur_items.Prepend(first_note_dur).ToList();
+            }
+            else
+            {
+                note_dur = note_dur_items.ToList();
+            }
+
+            note_dur.Add(0); // Placeholder for the last note/padding
+            note_dur[^1] = totalFrames - note_dur.Sum();
+            // -- End of modification --
             var pitch = Enumerable.Repeat(60f, totalFrames).ToArray();
             var retake = Enumerable.Repeat(true, totalFrames).ToArray();
             var pitchInputs = new List<NamedOnnxValue>();

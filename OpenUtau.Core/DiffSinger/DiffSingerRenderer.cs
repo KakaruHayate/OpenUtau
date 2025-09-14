@@ -73,11 +73,21 @@ namespace OpenUtau.Core.DiffSinger {
         //including the position of the phrase, 
         //the length of the head consonant, and the estimated total length
         public RenderResult Layout(RenderPhrase phrase) {
-            return new RenderResult() {
-                leadingMs = headMs,
+            // -- Start of modification --
+            // Determine if head padding is needed based on the first phoneme.
+            bool needsHeadPadding = phrase.phones == null || phrase.phones.Length == 0 || phrase.phones[0].phoneme != "SP";
+
+            // Set leadingMs conditionally.
+            double currentLeadingMs = needsHeadPadding ? headMs : 0;
+
+            return new RenderResult()
+            {
+                leadingMs = currentLeadingMs,
                 positionMs = phrase.positionMs,
-                estimatedLengthMs = headMs + phrase.durationMs + tailMs,
+                // Adjust estimatedLengthMs as well.
+                estimatedLengthMs = currentLeadingMs + phrase.durationMs + tailMs,
             };
+            // -- End of modification --
         }
 
         public Task<RenderResult> Render(RenderPhrase phrase, Progress progress, int trackNo, CancellationTokenSource cancellation, bool isPreRender) {
@@ -207,8 +217,15 @@ namespace OpenUtau.Core.DiffSinger {
             var acousticModel = singer.getAcousticSession();
             var frameMs = vocoder.frameMs();
             var frameSec = frameMs / 1000;
-            int headFrames = (int)Math.Round(headMs / frameMs);
-            int tailFrames = (int)Math.Round(tailMs / frameMs);
+            //int headFrames = (int)Math.Round(headMs / frameMs);
+            //int tailFrames = (int)Math.Round(tailMs / frameMs);
+            // -- Start of modification --
+            bool needsHeadPadding = phrase.phones[0].phoneme != "SP";
+            bool needsTailPadding = phrase.phones[^1].phoneme != "SP";
+
+            int headFrames = needsHeadPadding ? (int)Math.Round(headMs / frameMs) : 0;
+            int tailFrames = needsTailPadding ? (int)Math.Round(tailMs / frameMs) : 0;
+            // -- End of modification --
             var result = Layout(phrase);
             //acoustic
             //mel = session.run(['mel'], {'tokens': tokens, 'durations': durations, 'f0': f0, 'speedup': speedup})[0]
@@ -216,18 +233,45 @@ namespace OpenUtau.Core.DiffSinger {
             //durations: phoneme duration in frames
             //f0: pitch curve in Hz by frame
             //speedup: Diffusion render speedup, int
-            var tokens = phrase.phones
-                .Select(p => p.phoneme)
-                .Prepend("SP")
-                .Append("SP")
+            //var tokens = phrase.phones
+            //    .Select(p => p.phoneme)
+            //    .Prepend("SP")
+            //    .Append("SP")
+            //    .Select(phoneme => (Int64)singer.PhonemeTokenize(phoneme))
+            //    .ToList();
+            // -- Start of modification --
+            IEnumerable<string> phonemes = phrase.phones.Select(p => p.phoneme);
+            if (needsHeadPadding)
+            {
+                phonemes = phonemes.Prepend("SP");
+            }
+            if (needsTailPadding)
+            {
+                phonemes = phonemes.Append("SP");
+            }
+            var tokens = phonemes
                 .Select(phoneme => (Int64)singer.PhonemeTokenize(phoneme))
                 .ToList();
-            var durations = phrase.phones
-                .Select(p => (int)Math.Round(p.endMs / frameMs) - (int)Math.Round(p.positionMs / frameMs))//prevent cumulative error
-                .Prepend(headFrames)
-                .Append(tailFrames)
-                .ToList();
+            // -- End of modification --
+            //var durations = phrase.phones
+            //    .Select(p => (int)Math.Round(p.endMs / frameMs) - (int)Math.Round(p.positionMs / frameMs))//prevent cumulative error
+            //    .Prepend(headFrames)
+            //    .Append(tailFrames)
+            //    .ToList();
+            // -- Start of modification --
+            IEnumerable<int> durationItems = phrase.phones
+                .Select(p => (int)Math.Round(p.endMs / frameMs) - (int)Math.Round(p.positionMs / frameMs));//prevent cumulative error
+            if (needsHeadPadding)
+            {
+                durationItems = durationItems.Prepend(headFrames);
+            }
+            if (needsTailPadding)
+            {
+                durationItems = durationItems.Append(tailFrames);
+            }
+            var durations = durationItems.ToList(); // <<-- 转换回 List<int> 并使用旧变量名
             int totalFrames = durations.Sum();
+            // -- End of modification --
             float[] f0 = DiffSingerUtils.SampleCurve(phrase, phrase.pitches, 0, frameMs, totalFrames, headFrames, tailFrames, 
                 x => MusicMath.ToneToFreq(x * 0.01))
                 .Select(f => (float)f).ToArray();
@@ -279,20 +323,41 @@ namespace OpenUtau.Core.DiffSinger {
                     new DenseTensor<long>(new long[] { speedup }, new int[] { 1 }, false)));
             }
             //Language id
-            if(singer.dsConfig.use_lang_id){
-                var langIdByPhone = phrase.phones
+            //if(singer.dsConfig.use_lang_id){
+            //    var langIdByPhone = phrase.phones
+            //        .Select(p => (long)singer.languageIds.GetValueOrDefault(
+            //            DiffSingerUtils.PhonemeLanguage(p.phoneme),0
+            //            ))
+            //        .Prepend(0)
+            //        .Append(0)
+            //        .ToArray();
+            //    var langIdTensor = new DenseTensor<Int64>(langIdByPhone, new int[] { langIdByPhone.Length }, false)
+            //        .Reshape(new int[] { 1, langIdByPhone.Length });
+            //    acousticInputs.Add(NamedOnnxValue.CreateFromTensor("languages", langIdTensor));
+            //}
+            if (singer.dsConfig.use_lang_id)
+            {
+                // -- Start of modification --
+                IEnumerable<long> langIdByPhone = phrase.phones
                     .Select(p => (long)singer.languageIds.GetValueOrDefault(
-                        DiffSingerUtils.PhonemeLanguage(p.phoneme),0
-                        ))
-                    .Prepend(0)
-                    .Append(0)
-                    .ToArray();
-                var langIdTensor = new DenseTensor<Int64>(langIdByPhone, new int[] { langIdByPhone.Length }, false)
-                    .Reshape(new int[] { 1, langIdByPhone.Length });
+                        DiffSingerUtils.PhonemeLanguage(p.phoneme), 0
+                        ));
+                if (needsHeadPadding)
+                {
+                    langIdByPhone = langIdByPhone.Prepend(0);
+                }
+                if (needsTailPadding)
+                {
+                    langIdByPhone = langIdByPhone.Append(0);
+                }
+                var langIdArray = langIdByPhone.ToArray();
+                var langIdTensor = new DenseTensor<Int64>(langIdArray, new int[] { langIdArray.Length }, false)
+                    .Reshape(new int[] { 1, langIdArray.Length });
+                // -- End of modification --
                 acousticInputs.Add(NamedOnnxValue.CreateFromTensor("languages", langIdTensor));
             }
             //speaker
-            if(singer.dsConfig.speakers != null) {
+            if (singer.dsConfig.speakers != null) {
                 var speakerEmbedManager = singer.getSpeakerEmbedManager();
                 var spkEmbedTensor = speakerEmbedManager.PhraseSpeakerEmbedByFrame(phrase, durations, frameMs, totalFrames, headFrames, tailFrames);
                 acousticInputs.Add(NamedOnnxValue.CreateFromTensor("spk_embed", spkEmbedTensor));

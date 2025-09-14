@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -87,6 +87,11 @@ namespace OpenUtau.Core.DiffSinger
             var singer = phrase.singer;
             var hiddenSize = dsConfig.hiddenSize;
             var speakerEmbeds = getSpeakerEmbeds();
+            // -- Start of modification --
+
+            // This block is being replaced because `durations[phIndex+1]` can cause an IndexOutOfRangeException
+            // when no padding is present at the head of the phrase.
+            /*
             //get default speaker for each phoneme
             var headDefaultSpk = getSpeakerIndexBySuffix(phrase.phones[0].suffix);
             var tailDefaultSpk = getSpeakerIndexBySuffix(phrase.phones[^1].suffix);
@@ -94,6 +99,27 @@ namespace OpenUtau.Core.DiffSinger
             defaultSpkByFrame.AddRange(Enumerable.Range(0, phrase.phones.Length)
                 .SelectMany(phIndex => Enumerable.Repeat(getSpeakerIndexBySuffix(phrase.phones[phIndex].suffix), durations[phIndex+1])));
             defaultSpkByFrame.AddRange(Enumerable.Repeat(tailDefaultSpk, tailFrames));
+            */
+
+            // New logic: Build a list of speakers for each segment (head, body, tail)
+            // and then zip it with the durations to safely expand it into a per-frame list.
+            var phoneme_spks = new List<int>();
+            if (headFrames > 0)
+            {
+                phoneme_spks.Add(getSpeakerIndexBySuffix(phrase.phones[0].suffix));
+            }
+            phoneme_spks.AddRange(phrase.phones.Select(p => getSpeakerIndexBySuffix(p.suffix)));
+            if (tailFrames > 0)
+            {
+                phoneme_spks.Add(getSpeakerIndexBySuffix(phrase.phones[^1].suffix));
+            }
+
+            var defaultSpkByFrame = durations
+                .Zip(phoneme_spks, (dur, spk) => Enumerable.Repeat(spk, dur))
+                .SelectMany(x => x)
+                .ToList();
+
+            // -- End of modification --
             //get speaker curves
             NDArray spkCurves = np.zeros<float>(totalFrames, dsConfig.speakers.Count);
             foreach(var curve in phrase.curves) {
