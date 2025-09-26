@@ -212,10 +212,11 @@ namespace OpenUtau.Core.DiffSinger{
             identityInputs.Add(NamedOnnxValue.CreateFromTensor("ph_dur",
                 new DenseTensor<Int64>(ph_dur.Select(x => (Int64)x).ToArray(), new int[] { ph_dur.Length }, false)
                 .Reshape(new int[] { 1, ph_dur.Length })));
-            identityInputs.Add(NamedOnnxValue.CreateFromTensor("pitch",
-                new DenseTensor<float>(pitch, new int[] { pitch.Length }, false)
-                .Reshape(new int[] { 1, totalFrames })));
-            
+            // inpaint考虑pitch修改常驻生成掩码，所以cache不再考虑pitch
+            //identityInputs.Add(NamedOnnxValue.CreateFromTensor("pitch",
+            //    new DenseTensor<float>(pitch, new int[] { pitch.Length }, false)
+            //    .Reshape(new int[] { 1, totalFrames })));
+
             if (dsConfig.speakers != null) {
                 var speakerEmbedManager = getSpeakerEmbedManager();
                 var spkEmbedTensor = speakerEmbedManager.PhraseSpeakerEmbedByFrame(phrase, ph_dur, frameMs, totalFrames, headFrames, tailFrames);
@@ -235,6 +236,14 @@ namespace OpenUtau.Core.DiffSinger{
                     new DenseTensor<long>(new long[] { speedup }, new int[] { 1 }, false)));
             }
 
+            // 将varianceInputs初始化移动到了这里，因为要提前处理inpaint掩码
+            // This list will hold all inputs for the model run.
+            var varianceInputs = new List<NamedOnnxValue>(identityInputs);
+            // inpaint考虑pitch修改常驻生成掩码，所以cache不再考虑pitch
+            varianceInputs.Add(NamedOnnxValue.CreateFromTensor("pitch",
+                new DenseTensor<float>(pitch, new int[] { pitch.Length }, false)
+                .Reshape(new int[] { 1, totalFrames })));
+
             // 2. Create the cache object based on identity.
             var varianceCache = Preferences.Default.DiffSingerTensorCache
                 ? new DiffSingerCache(varianceHash, identityInputs)
@@ -243,8 +252,34 @@ namespace OpenUtau.Core.DiffSinger{
             bool isRetakeActive = phrase.phones.Any(p => p.retake);
             var previousBaseOutput = varianceCache?.Load();
 
+            // 判断是否需要重新渲染，这里比较原pitch输入和现在的pitch，并且生成掩码
+            bool[] perFrameMask = null;
+            bool needsRerender = isRetakeActive || previousBaseOutput == null;
+
+            if (!needsRerender) {
+                var oldPitchValue = previousBaseOutput.FirstOrDefault(o => o.Name == "pitch");
+                if (oldPitchValue != null) {
+                    var oldPitch = oldPitchValue.AsTensor<float>().ToArray();
+                    if (oldPitch.Length == pitch.Length) {
+                        perFrameMask = new bool[pitch.Length];
+                        for (int i = 0; i < pitch.Length; i++) {
+                            if (Math.Abs(pitch[i] - oldPitch[i]) > 1e-6) {
+                                needsRerender = true;
+                                perFrameMask[i] = true;
+                            }
+                        }
+                    } else {
+                        // Pitch length mismatch, force rerender all
+                        needsRerender = true;
+                    }
+                } else {
+                    // No pitch in cache, force rerender all
+                    needsRerender = true;
+                }
+            }
+
             // Fast path for non-retake mode with a valid cache.
-            if (!isRetakeActive && previousBaseOutput != null) {
+            if (!needsRerender && previousBaseOutput != null) {
                 energy_pred = dsConfig.predict_energy
                     ? previousBaseOutput
                         .Where(o => o.Name == "energy_pred")
@@ -278,8 +313,8 @@ namespace OpenUtau.Core.DiffSinger{
                 };
             }
             
-            // This list will hold all inputs for the model run.
-            var varianceInputs = new List<NamedOnnxValue>(identityInputs);
+            // This list will hold all inputs for the model run.因为现在需要比较pitch输入所以初始化被提前到了l241
+            // var varianceInputs = new List<NamedOnnxValue>(identityInputs);
             var baseCurves = new Dictionary<string, float[]>();
 
             // 4. Prepare STATEFUL INPUTS.
@@ -358,9 +393,19 @@ namespace OpenUtau.Core.DiffSinger{
                 dsConfig.predict_tension,
             }.Sum(Convert.ToInt32);
 
-            bool[] perFrameMask;
-            if (isRetakeActive && previousBaseOutput != null) {
-                perFrameMask = DiffSingerUtils.GenerateRetakeMask(phrase, totalFrames, headFrames, ph_dur);
+            // retake mask现在要融合inpaint掩码
+            if (needsRerender) {
+                if (perFrameMask == null) {
+                    // Case: isRetakeActive or previousBaseOutput is null
+                    perFrameMask = Enumerable.Repeat(true, totalFrames).ToArray();
+                }
+                if (isRetakeActive) {
+                    // Combine with user retake mask
+                    var userRetakeMask = DiffSingerUtils.GenerateRetakeMask(phrase, totalFrames, headFrames, ph_dur);
+                    for (int i = 0; i < totalFrames; ++i) {
+                        perFrameMask[i] = perFrameMask[i] || userRetakeMask[i];
+                    }
+                }
             } else {
                 perFrameMask = Enumerable.Repeat(true, totalFrames).ToArray();
             }
@@ -377,6 +422,8 @@ namespace OpenUtau.Core.DiffSinger{
 
             // 7. Post-process to get the new base curves.
             var newBaseOutputs = new List<NamedOnnxValue>();
+
+            newBaseOutputs.Add(varianceInputs.First(v => v.Name == "pitch")); // 缓存输入作为下一个渲染循环的比较对象
 
             if (dsConfig.predict_energy) {
                 var mixedCurve = modelOutputs.First(o => o.Name == "energy_pred").AsTensor<float>().ToArray();
