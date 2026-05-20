@@ -37,12 +37,7 @@ namespace OpenUtau.Core.DiffSinger {
         };
 
         private static readonly Dictionary<string, Func<float, float, float>> varianceDeltaFunctions =
-            new Dictionary<string, Func<float, float, float>>() {
-                {ENE, (x, y) => x + y * 12 / 100},
-                {Format.Ustx.BREC, (x, y) => x + y * 12 / 100},
-                {Format.Ustx.VOIC, (x, y) => x + (y - 100) * 12 / 100},
-                {Format.Ustx.TENC, (x, y) => x + y / 20},
-            };
+            DiffSingerUtils.VarianceDeltaFunctions;
 
         static readonly object lockObj = new object();
 
@@ -115,7 +110,7 @@ namespace OpenUtau.Core.DiffSinger {
                                 result.samples = Wave.GetSamples(waveStream.ToSampleProvider().ToMono(1, 0));
                             }
                         } catch (Exception e) {
-                            Log.Error(e, "Failed to render.");
+                            Log.Error(e, "Failed to read cached render, re-rendering.");
                         }
                     }
                     if (result.samples == null) {
@@ -146,6 +141,9 @@ namespace OpenUtau.Core.DiffSinger {
             if(String.IsNullOrEmpty(singer.dsConfig.vocoder) ||
                 String.IsNullOrEmpty(singer.dsConfig.acoustic) ||
                 String.IsNullOrEmpty(singer.dsConfig.phonemes)){
+                if(singer.Errors.Count > 0) {
+                    throw new Exception(singer.Errors[0]);
+                }
                 throw new Exception("Invalid dsconfig.yaml. Please ensure that dsconfig.yaml contains keys \"vocoder\", \"acoustic\" and \"phonemes\".");
             }
 
@@ -338,6 +336,10 @@ namespace OpenUtau.Core.DiffSinger {
                 || singer.dsConfig.useEnergyEmbed
                 || singer.dsConfig.useVoicingEmbed
                 || singer.dsConfig.useTensionEmbed) {
+                if(!singer.HasVariancePredictor){
+                    throw new Exception(
+                        "This singer has no variance predictor but its acoustic model requires one.");
+                }
                 var variancePredictor = singer.getVariancePredictor();
                 VarianceResult varianceResult;
                 lock(variancePredictor){
@@ -366,7 +368,8 @@ namespace OpenUtau.Core.DiffSinger {
                         varianceResult.headFrames, varianceResult.tailFrames,
                         headFrames, tailFrames,
                         varianceResult.frameMs, frameMs);
-                    var energy = predictedEnergy.Zip(userEnergy, varianceDeltaFunctions[ENE]).ToArray();
+                    var energy = predictedEnergy.Zip(userEnergy, varianceDeltaFunctions[ENE])
+                        .Select(x => Math.Clamp(x, -96f, 0f)).ToArray();
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("energy",
                         new DenseTensor<float>(energy, new int[] { energy.Length })
                         .Reshape(new int[] { 1, energy.Length })));
@@ -384,7 +387,8 @@ namespace OpenUtau.Core.DiffSinger {
                         varianceResult.headFrames, varianceResult.tailFrames,
                         headFrames, tailFrames,
                         varianceResult.frameMs, frameMs);
-                    var breathiness = predictedBreathiness.Zip(userBreathiness, varianceDeltaFunctions[Format.Ustx.BREC]).ToArray();
+                    var breathiness = predictedBreathiness.Zip(userBreathiness, varianceDeltaFunctions[Format.Ustx.BREC])
+                        .Select(x => Math.Clamp(x, -96f, 0f)).ToArray();
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("breathiness",
                         new DenseTensor<float>(breathiness, new int[] { breathiness.Length })
                         .Reshape(new int[] { 1, breathiness.Length })));
@@ -402,7 +406,8 @@ namespace OpenUtau.Core.DiffSinger {
                         varianceResult.headFrames, varianceResult.tailFrames,
                         headFrames, tailFrames,
                         varianceResult.frameMs, frameMs);
-                    var voicing = predictedVoicing.Zip(userVoicing, varianceDeltaFunctions[Format.Ustx.VOIC]).ToArray();
+                    var voicing = predictedVoicing.Zip(userVoicing, varianceDeltaFunctions[Format.Ustx.VOIC])
+                        .Select(x => Math.Clamp(x, -96f, 0f)).ToArray();
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("voicing",
                         new DenseTensor<float>(voicing, new int[] { voicing.Length })
                         .Reshape(new int[] { 1, voicing.Length })));
@@ -420,7 +425,8 @@ namespace OpenUtau.Core.DiffSinger {
                         varianceResult.headFrames, varianceResult.tailFrames,
                         headFrames, tailFrames,
                         varianceResult.frameMs, frameMs);
-                    var tension = predictedTension.Zip(userTension, varianceDeltaFunctions[Format.Ustx.TENC]).ToArray();
+                    var tension = predictedTension.Zip(userTension, varianceDeltaFunctions[Format.Ustx.TENC])
+                        .Select(x => Math.Clamp(x, -10f, 10f)).ToArray();
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("tension",
                         new DenseTensor<float>(tension, new int[] { tension.Length })
                         .Reshape(new int[] { 1, tension.Length })));
