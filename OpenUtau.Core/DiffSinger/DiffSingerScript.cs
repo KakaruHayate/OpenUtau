@@ -120,6 +120,14 @@ namespace OpenUtau.Core.DiffSinger {
                     x=>Math.Pow(2, (x - 100) / 100));
             }
 
+            //shmc
+            var shmcCurve = phrase.curves.FirstOrDefault(curve => curve.Item1 == DiffSingerUtils.SHMC);
+            if (shmcCurve != null && singer?.dsConfig.use_shift_mouth_opening_embed == true) {
+                shift_mouth_opening = DiffSingerUtils.SampleCurve(phrase, shmcCurve.Item2,
+                    0, frameMs, totalFrames, headFrames, tailFrames,
+                    x => x / 100.0);
+            }
+
             //voicebank specific features
             if(singer != null) {
                 //gender
@@ -266,6 +274,11 @@ namespace OpenUtau.Core.DiffSinger {
             if (script.velocity != null) {
                 velocity_timestep = f0_timestep;
                 velocity = String.Join(" ", script.velocity.Select(FormatValue));
+            }
+
+            if (script.shift_mouth_opening != null) {
+                shift_mouth_opening_timestep = f0_timestep;
+                shift_mouth_opening = String.Join(" ", script.shift_mouth_opening.Select(FormatValue));
             }
 
             if (script.energy != null) {

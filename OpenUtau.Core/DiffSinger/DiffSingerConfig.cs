@@ -30,6 +30,7 @@ namespace OpenUtau.Core.DiffSinger {
         public AugmentationArgs augmentationArgs;
         public bool useContinuousAcceleration = false;
         public bool use_lang_id = false;
+        public bool use_shift_mouth_opening_embed = false;
         [YamlMember(Alias = "use_shallow_diffusion")] public bool? _useShallowDiffusion;
         [YamlMember(Alias = "use_variable_depth")] public bool? _useVariableDepth;
         [YamlIgnore]
