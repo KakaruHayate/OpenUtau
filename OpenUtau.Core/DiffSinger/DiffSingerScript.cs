@@ -238,8 +238,8 @@ namespace OpenUtau.Core.DiffSinger {
         public string? voicing = null;
         public string? tension_timestep = null;
         public string? tension = null;
-        public string[]? shift_mouth_opening = null;
-        public string[]? shift_mouth_opening_timestep = null;
+        public string? shift_mouth_opening = null;
+        public string? shift_mouth_opening_timestep = null;
         static string FormatMsAsSeconds(double ms) {
             return (ms / 1000).ToString("G9", CultureInfo.InvariantCulture);
         }
