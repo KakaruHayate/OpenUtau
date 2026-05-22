@@ -31,7 +31,7 @@ namespace OpenUtau.Core.DiffSinger {
         public double[]? breathiness = null;
         public double[]? voicing = null;
         public double[]? tension = null;
-
+        public double[]? shift_mouth_opening = null;
         public DiffSingerScript(RenderPhrase phrase, DsScriptExportOptions options) {
             float headMs = DiffSingerUtils.GetHeadMs(phrase);
             float tailMs = DiffSingerUtils.GetTailMs(phrase);
@@ -238,7 +238,8 @@ namespace OpenUtau.Core.DiffSinger {
         public string? voicing = null;
         public string? tension_timestep = null;
         public string? tension = null;
-
+        public string[]? shift_mouth_opening = null;
+        public string[]? shift_mouth_opening_timestep = null;
         static string FormatMsAsSeconds(double ms) {
             return (ms / 1000).ToString("G9", CultureInfo.InvariantCulture);
         }
