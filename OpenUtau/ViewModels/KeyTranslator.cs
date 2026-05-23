@@ -9,15 +9,34 @@ namespace OpenUtau.App.ViewModels {
         public static readonly bool IsMac = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
 
         /// <summary>
-        /// Converts ugly internal Avalonia key names into human-readable strings.
-        /// Accounts for macOS and Linux naming conventions.
+        /// Normalizes modifiers so Windows "Ctrl" becomes Mac "Cmd", 
+        /// and Windows "Win" becomes Mac "Ctrl".
         /// </summary>
+        private static KeyModifiers NormalizeModifiers(KeyModifiers modifiers) {
+            if (!IsMac) return modifiers;
+
+            var normalized = modifiers;
+            bool hasCtrl = modifiers.HasFlag(KeyModifiers.Control);
+            bool hasMeta = modifiers.HasFlag(KeyModifiers.Meta);
+
+            if (hasCtrl) {
+                normalized &= ~KeyModifiers.Control;
+                normalized |= KeyModifiers.Meta; 
+            }
+            if (hasMeta) {
+                normalized &= ~KeyModifiers.Meta;
+                normalized |= KeyModifiers.Control; 
+            }
+
+            return normalized;
+        }
+
         public static string GetFriendlyName(string keyName) {
             return keyName switch {
                 // Modifiers
                 "Windows" or "LWin" or "RWin" => IsMac ? "⌘" : "Win",
                 "LeftAlt" or "RightAlt" or "Alt" => IsMac ? "⌥" : "Alt",
-                "Control" or "LeftCtrl" or "RightCtrl" or "LControl" or "RControl" => IsMac ? "⌘" : "Ctrl",
+                "Control" or "LeftCtrl" or "RightCtrl" or "LControl" or "RControl" => IsMac ? "⌃" : "Ctrl", 
                 "Shift" or "LeftShift" or "RightShift" => IsMac ? "⇧" : "Shift",
                 
                 // Navigation & Editing
@@ -65,10 +84,6 @@ namespace OpenUtau.App.ViewModels {
             };
         }
 
-        /// <summary>
-        /// Fuzzy matcher for cross-platform keyboard quirks.
-        /// If the exact enum doesn't match, it checks known hardware equivalents.
-        /// </summary>
         public static bool IsKeyMatch(Key savedKey, Key pressedKey) {
             if (savedKey == pressedKey) return true;
 
@@ -86,12 +101,12 @@ namespace OpenUtau.App.ViewModels {
             };
         }
 
-        /// <summary>
-        /// Converts raw Avalonia KeyModifiers into a clean, OS-specific string.
-        /// Windows: "Ctrl + Shift" | macOS: "⇧⌘"
-        /// </summary>
         public static string GetFriendlyModifiersName(KeyModifiers modifiers) {
             if (modifiers == KeyModifiers.None) return "";
+            
+            // Apply macOS normalization before rendering strings
+            modifiers = NormalizeModifiers(modifiers);
+
             var parts = new System.Collections.Generic.List<string>();
             if (modifiers.HasFlag(KeyModifiers.Control)) {
                 parts.Add(IsMac ? "⌃" : "Ctrl");
@@ -106,14 +121,9 @@ namespace OpenUtau.App.ViewModels {
                 parts.Add(IsMac ? "⌘" : "Win");
             }
 
-            // Windows joins with " + ". Mac joins with nothing.
             return string.Join(IsMac ? "" : " + ", parts);
         }
 
-        /// <summary>
-        /// Generates a native Avalonia KeyGesture for UI Menus (Top Menu, Right-Click).
-        /// Automatically formats for Windows (Ctrl+S) or Mac (⌘S).
-        /// </summary>
         public static Avalonia.Input.KeyGesture? GetGesture(string actionId) {
             var sc = Preferences.Default.Shortcuts?.FirstOrDefault(s => s.ActionId == actionId);
             
@@ -122,6 +132,9 @@ namespace OpenUtau.App.ViewModels {
                 Enum.TryParse<Avalonia.Input.KeyModifiers>(sc.ModifiersName, out var m) && 
                 k != Avalonia.Input.Key.None) {
                 
+                // Apply macOS normalization to the actual hotkey gesture
+                m = NormalizeModifiers(m);
+
                 return new Avalonia.Input.KeyGesture(k, m);
             }
             return null;

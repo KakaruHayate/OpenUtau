@@ -215,17 +215,17 @@
             </Menu.Styles>
 
             <MenuItem Header="{DynamicResource menu.edit}">
-              <MenuItem Header="{Binding UndoText}" InputGesture="{Binding Hotkeys[Undo]}" Command="{Binding Undo}" IsEnabled="{Binding CanUndo}"/>
-              <MenuItem Header="{Binding RedoText}" InputGesture="{Binding Hotkeys[Redo]}" Command="{Binding Redo}" IsEnabled="{Binding CanRedo}"/>
+              <MenuItem Header="{Binding UndoText}" InputGesture="{Binding HotkeyDisplayTexts[Undo]}" Command="{Binding Undo}" IsEnabled="{Binding CanUndo}"/>
+              <MenuItem Header="{Binding RedoText}" InputGesture="{Binding HotkeyDisplayTexts[Redo]}" Command="{Binding Redo}" IsEnabled="{Binding CanRedo}"/>
               <MenuItem Header="-" Height="1"/>
-              <MenuItem Header="{DynamicResource menu.edit.cut}" InputGesture="{Binding Hotkeys[Cut]}" Command="{Binding Cut}"/>
-              <MenuItem Header="{DynamicResource menu.edit.copy}" InputGesture="{Binding Hotkeys[Copy]}" Command="{Binding Copy}"/>
-              <MenuItem Header="{DynamicResource menu.edit.paste}" InputGesture="{Binding Hotkeys[Paste]}" Command="{Binding Paste}"/>
-              <MenuItem Header="{DynamicResource menu.edit.pasteplainnotes}" InputGesture="{Binding Hotkeys[PastePlain]}" Command="{Binding PastePlain}"/>
-              <MenuItem Header="{DynamicResource menu.edit.delete}" InputGesture="{Binding Hotkeys[DeleteNotes]}" Command="{Binding Delete}"/>
+              <MenuItem Header="{DynamicResource menu.edit.cut}" InputGesture="{Binding HotkeyDisplayTexts[Cut]}" Command="{Binding Cut}"/>
+              <MenuItem Header="{DynamicResource menu.edit.copy}" InputGesture="{Binding HotkeyDisplayTexts[Copy]}" Command="{Binding Copy}"/>
+              <MenuItem Header="{DynamicResource menu.edit.paste}" InputGesture="{Binding HotkeyDisplayTexts[Paste]}" Command="{Binding Paste}"/>
+              <MenuItem Header="{DynamicResource menu.edit.pasteplainnotes}" InputGesture="{Binding HotkeyDisplayTexts[PastePlain]}" Command="{Binding PastePlain}"/>
+              <MenuItem Header="{DynamicResource menu.edit.delete}" InputGesture="{Binding HotkeyDisplayTexts[DeleteNotes]}" Command="{Binding Delete}"/>
               <MenuItem Header="-" Height="1"/>
-              <MenuItem Header="{DynamicResource pianoroll.menu.searchnote}" InputGesture="{Binding Hotkeys[SearchNote]}" Click="OnMenuSearchNote"/>
-              <MenuItem Header="{DynamicResource menu.edit.selectall}" InputGesture="{Binding Hotkeys[SelectAll]}" Command="{Binding SelectAll}"/>
+              <MenuItem Header="{DynamicResource pianoroll.menu.searchnote}" InputGesture="{Binding HotkeyDisplayTexts[SearchNote]}" Click="OnMenuSearchNote"/>
+              <MenuItem Header="{DynamicResource menu.edit.selectall}" InputGesture="{Binding HotkeyDisplayTexts[SelectAll]}" Command="{Binding SelectAll}"/>
               <MenuItem Header="-" Height="1"/>
               <MenuItem Header="{DynamicResource pianoroll.menu.part.singer}" Click="OnMenuSingers"/>
               <MenuItem Header="{DynamicResource menu.edit.lockunselectednotes}">
@@ -268,7 +268,7 @@
                   <CheckBox IsChecked="{Binding UseTrackColor}" />
                 </MenuItem.Icon>
               </MenuItem>
-              <MenuItem Header="{DynamicResource menu.tools.fullscreen}" InputGesture="{Binding Hotkeys[FullScreen]}" Click="OnMenuFullScreen"/>
+              <MenuItem Header="{DynamicResource menu.tools.fullscreen}" InputGesture="{Binding HotkeyDisplayTexts[FullScreen]}" Click="OnMenuFullScreen"/>
               <MenuItem Header="{DynamicResource prefs.appearance.degree}">
                 <MenuItem Header="{DynamicResource prefs.appearance.degree.off}" Click="OnMenuDegreeStyle" Tag="0">
                   <MenuItem.Icon>
@@ -342,7 +342,7 @@
               <MenuItem Header="{DynamicResource pianoroll.menu.external}" ItemsSource="{Binding ExternalBatchEdits}" Classes="MenuItemWithSubMenu"/>
               <MenuItem Header="{DynamicResource pianoroll.menu.part.legacypluginexp}" ItemsSource="{Binding LegacyPlugins}" Name="PluginMenu" Classes="MenuItemWithSubMenu"/>
             </MenuItem>
-            <MenuItem Header="{DynamicResource pianoroll.menu.lyrics.edit}" InputGesture="{Binding Hotkeys[EditLyrics]}" Click="OnMenuEditLyrics"/>
+            <MenuItem Header="{DynamicResource pianoroll.menu.lyrics.edit}" InputGesture="{Binding HotkeyDisplayTexts[EditLyrics]}" Click="OnMenuEditLyrics"/>
             <MenuItem Header="{DynamicResource pianoroll.menu.notedefaults}" Click="OnMenuNoteDefaults"/>
           </Menu>
         </Border>
@@ -352,7 +352,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.toggle.tips}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToggleTips], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToggleTips], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -367,7 +367,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.tool.selectionv2}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToolSelect1], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToolSelect1], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -387,7 +387,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.tool.penv2}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToolSelect2Main], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToolSelect2Main], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -407,7 +407,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.tool.penplus}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToolSelect2Alt], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToolSelect2Alt], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -427,7 +427,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.tool.eraser}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToolSelect3], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToolSelect3], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -447,7 +447,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.tool.drawpitch}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToolSelect4Main], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToolSelect4Main], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -467,7 +467,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.tool.overwritepitch}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToolSelect4Overwrite], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToolSelect4Overwrite], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -487,7 +487,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.tool.drawlinepitch}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToolSelect4Line], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToolSelect4Line], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -507,7 +507,7 @@
                   <ToolTip.Tip>
                     <StackPanel>
                       <TextBlock Text="{DynamicResource pianoroll.tool.overwritelinepitch}"/>
-                      <TextBlock Text="{Binding Hotkeys[ToolSelect4LineOverwrite], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                      <TextBlock Text="{Binding HotkeyDisplayTexts[ToolSelect4LineOverwrite], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                     </StackPanel>
                   </ToolTip.Tip>
                   <Grid Width="18" Height="18">
@@ -527,7 +527,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.tool.knife}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToolSelect5], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToolSelect5], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -546,7 +546,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.toggle.tone}"/>
-                  <TextBlock Text="{Binding Hotkeys[TogglePlayTone], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[TogglePlayTone], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -564,7 +564,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.toggle.vibrato}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToggleVibrato], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToggleVibrato], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -579,7 +579,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.toggle.pitch}"/>
-                  <TextBlock Text="{Binding Hotkeys[TogglePitch], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[TogglePitch], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -592,7 +592,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.toggle.finalpitch}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToggleFinalPitch], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToggleFinalPitch], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -603,7 +603,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.toggle.waveform}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToggleWaveform], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToggleWaveform], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -621,7 +621,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.toggle.phoneme}"/>
-                  <TextBlock Text="{Binding Hotkeys[TogglePhoneme], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[TogglePhoneme], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -632,7 +632,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.toggle.expressions}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToggleExpressions], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToggleExpressions], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">
@@ -646,7 +646,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.toggle.snap}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToggleSnap], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToggleSnap], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Border Width="18" Height="18">
@@ -670,7 +670,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.snapdiv}"/>
-                  <TextBlock Text="{Binding Hotkeys[OpenSnapMenu], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[OpenSnapMenu], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <TextBlock Grid.Column="0" Text="{Binding NotesViewModel.SnapDivText}"
@@ -699,7 +699,7 @@
               <ToolTip.Tip>
                 <StackPanel>
                   <TextBlock Text="{DynamicResource pianoroll.toggle.noteparams}"/>
-                  <TextBlock Text="{Binding Hotkeys[ToggleNoteParams], StringFormat='[ {0} ]'}" Opacity="0.6"/>
+                  <TextBlock Text="{Binding HotkeyDisplayTexts[ToggleNoteParams], StringFormat='[ {0} ]'}" Opacity="0.6"/>
                 </StackPanel>
               </ToolTip.Tip>
               <Grid Width="18" Height="18">

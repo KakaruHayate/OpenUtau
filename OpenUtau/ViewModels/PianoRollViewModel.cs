@@ -47,7 +47,8 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public NotesViewModel NotesViewModel { get; set; }
         [Reactive] public PlaybackViewModel? PlaybackViewModel { get; set; }
         [Reactive] public CurveViewModel CurveViewModel { get; set; }
-        [Reactive] public Dictionary<string, string> Hotkeys { get; set; } = new Dictionary<string, string>();
+        [Reactive] public Dictionary<string, KeyGesture> Hotkeys { get; set; } = new Dictionary<string, KeyGesture>();
+        [Reactive] public Dictionary<string, string> HotkeyDisplayTexts { get; set; } = new Dictionary<string, string>();
 
         public double Width => Preferences.Default.PianorollWindowSize.Width;
         public double Height => Preferences.Default.PianorollWindowSize.Height;
@@ -114,23 +115,33 @@ namespace OpenUtau.App.ViewModels {
         private ReactiveCommand<Classic.Plugin, Unit> legacyPluginCommand;
 
         public void ReloadShortcuts() {
-            var newHotkeys = new Dictionary<string, string>();
+            var newHotkeys = new Dictionary<string, KeyGesture>();
+            var newDisplayTexts = new Dictionary<string, string>();
             
-            foreach (var sc in Preferences.Default.Shortcuts) {
-                Enum.TryParse<KeyModifiers>(sc.ModifiersName, out var parsedMods);
-                
-                string mods = KeyTranslator.GetFriendlyModifiersName(parsedMods);
-                string key = KeyTranslator.GetFriendlyName(sc.KeyName); 
-                
-                if (string.IsNullOrEmpty(mods) || sc.ModifiersName == "None") {
-                    newHotkeys[sc.ActionId] = key;
-                } else {
-                    // Mac gets no separator, Windows gets standard "+" for menus
-                    newHotkeys[sc.ActionId] = KeyTranslator.IsMac ? $"{mods}{key}" : $"{mods.Replace(" + ", "+")}+{key}";
+            if (Preferences.Default.Shortcuts != null) {
+                foreach (var sc in Preferences.Default.Shortcuts) {
+                    // Functional Gesture Binding
+                    var gesture = KeyTranslator.GetGesture(sc.ActionId);
+                    if (gesture != null) {
+                        newHotkeys[sc.ActionId] = gesture;
+                    }
+
+                    // Friendly Display Text Binding
+                    Enum.TryParse<KeyModifiers>(sc.ModifiersName, out var parsedMods);
+                    string mods = KeyTranslator.GetFriendlyModifiersName(parsedMods);
+                    string key = KeyTranslator.GetFriendlyName(sc.KeyName); 
+                    
+                    if (string.IsNullOrEmpty(mods) || sc.ModifiersName == "None") {
+                        newDisplayTexts[sc.ActionId] = key;
+                    } else {
+                        newDisplayTexts[sc.ActionId] = KeyTranslator.IsMac 
+                            ? $"{mods}{key}" 
+                            : $"{mods.Replace(" + ", "+")}+{key}";
+                    }
                 }
             }
-            
             Hotkeys = newHotkeys;
+            HotkeyDisplayTexts = newDisplayTexts;
         }
 
         public PianoRollViewModel() {
