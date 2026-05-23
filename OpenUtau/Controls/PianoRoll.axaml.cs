@@ -225,7 +225,7 @@ namespace OpenUtau.App.Controls {
             } catch (Exception e) {
                 Log.Error(e, "Failed to load external batch edits.");
             }
-            
+
             DocManager.Inst.AddSubscriber(this);
 
             ViewModel.NoteBatchEdits.Insert(6, new MenuItemViewModel() {
@@ -271,11 +271,11 @@ namespace OpenUtau.App.Controls {
             });
 
             AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
-            
+
             this.WhenAnyValue(x => x.ViewModel!.PlaybackViewModel!.PlayPosTick)
                 .Subscribe(tick => {
                     var notesVm = ViewModel?.NotesViewModel;
-                    
+
                     if (notesVm?.Part == null) return;
                     if (tick < notesVm.Part.position || tick >= notesVm.Part.End) {
                         var targetPart = notesVm.Project.parts
@@ -565,7 +565,9 @@ namespace OpenUtau.App.Controls {
         }
 
         private void LyricBoxLostFocus(object sender, RoutedEventArgs e) {
-            this.Focus();
+            if (sender is InputElement { IsKeyboardFocusWithin: false }) {
+                this.Focus();
+            }
         }
 
         public void OnExpButtonClick(object sender, RoutedEventArgs args) {
@@ -954,7 +956,7 @@ namespace OpenUtau.App.Controls {
             if (ViewModel?.NotesViewModel?.HitTest == null) {
                 return;
             }
-            if((ViewModel.NotesViewModel.DrawPitchTool || ViewModel.NotesViewModel.DrawLinePitchTool || ViewModel.NotesViewModel.OverwritePitchTool || ViewModel.NotesViewModel.OverwriteLinePitchTool || ViewModel.NotesViewModel.EraserTool) && args.KeyModifiers != cmdKey) {
+            if ((ViewModel.NotesViewModel.DrawPitchTool || ViewModel.NotesViewModel.DrawLinePitchTool || ViewModel.NotesViewModel.OverwritePitchTool || ViewModel.NotesViewModel.OverwriteLinePitchTool || ViewModel.NotesViewModel.EraserTool) && args.KeyModifiers != cmdKey) {
                 Cursor = null;
                 return;
             }
