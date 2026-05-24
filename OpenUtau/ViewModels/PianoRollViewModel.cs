@@ -232,27 +232,32 @@ namespace OpenUtau.App.ViewModels {
 
         private void LoadLegacyPlugins() {
             LegacyPlugins.Clear();
-            
             LegacyPlugins.AddRange(DocManager.Inst.Plugins.Select(plugin => new MenuItemViewModel() {
                 Header = plugin.Name,
-                InputGesture = KeyTranslator.GetGesture(plugin.Name),
                 Command = legacyPluginCommand,
                 CommandParameter = plugin,
             }));
 
             LegacyPluginShortcuts.Clear();
             foreach (MenuItemViewModel menu in LegacyPlugins) {
-                if (menu.InputGesture != null && !LegacyPluginShortcuts.ContainsKey(menu.InputGesture.Key)) {
-                    LegacyPluginShortcuts.Add(menu.InputGesture.Key, menu);
+                if (menu.CommandParameter is Classic.Plugin plugin) {
+                    if (Enum.TryParse(plugin.Shortcut, out Key key) && !LegacyPluginShortcuts.ContainsKey(key)) {
+                        LegacyPluginShortcuts.Add(key, menu);
+                    }
                 }
             }
-
-            LegacyPlugins.Add(new MenuItemViewModel() { Header = "-", Height = 1 });
+            LegacyPlugins.Add(new MenuItemViewModel() { // Separator
+                Header = "-",
+                Height = 1
+            });
             LegacyPlugins.Add(new MenuItemViewModel() {
                 Header = ThemeManager.GetString("pianoroll.menu.plugin.openfolder"),
                 Command = ReactiveCommand.Create(() => {
-                    try { OS.OpenFolder(PathManager.Inst.PluginsPath); } 
-                    catch (Exception e) { DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(e)); }
+                    try {
+                        OS.OpenFolder(PathManager.Inst.PluginsPath);
+                    } catch (Exception e) {
+                        DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(e));
+                    }
                 })
             });
             LegacyPlugins.Add(new MenuItemViewModel() {

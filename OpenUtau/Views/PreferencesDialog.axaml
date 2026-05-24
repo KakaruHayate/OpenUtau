@@ -5,12 +5,12 @@
         xmlns:vm="using:OpenUtau.App.ViewModels"
         xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
         xmlns:styles="clr-namespace:Material.Styles;assembly=Material.Styles"
-        mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="460"
+        mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="490"
         x:Class="OpenUtau.App.Views.PreferencesDialog"
         Icon="/Assets/open-utau.ico"
         Title="{DynamicResource prefs.caption}"
         WindowStartupLocation="CenterScreen"
-        Width="700" Height="460">
+        Width="700" Height="490">
   <Window.Resources>
     <vm:CultureNameConverter x:Key="cultureNameConverter"/>
   </Window.Resources>

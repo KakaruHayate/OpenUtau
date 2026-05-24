@@ -114,7 +114,7 @@ namespace OpenUtau.App.Controls {
                 new RandomizePhonemeOffset()
             }.Select(edit => new MenuItemViewModel() {
                 Header = ThemeManager.GetString(edit.Name),
-                InputGesture = KeyTranslator.GetGesture(edit.Name),
+                InputGesture = KeyTranslator.GetGestureForMenu(edit.Name),
                 Command = noteBatchEditCommand,
                 CommandParameter = edit,
             }));
@@ -133,7 +133,7 @@ namespace OpenUtau.App.Controls {
                 new InsertSlur(),
             }.Select(edit => new MenuItemViewModel() {
                 Header = ThemeManager.GetString(edit.Name),
-                InputGesture = KeyTranslator.GetGesture(edit.Name),
+                InputGesture = KeyTranslator.GetGestureForMenu(edit.Name),
                 Command = noteBatchEditCommand,
                 CommandParameter = edit,
             }));
@@ -148,7 +148,7 @@ namespace OpenUtau.App.Controls {
                 new ResetAliases(),
             }.Select(edit => new MenuItemViewModel() {
                 Header = ThemeManager.GetString(edit.Name),
-                InputGesture = KeyTranslator.GetGesture(edit.Name),
+                InputGesture = KeyTranslator.GetGestureForMenu(edit.Name),
                 Command = noteBatchEditCommand,
                 CommandParameter = edit,
             }));
@@ -160,7 +160,7 @@ namespace OpenUtau.App.Controls {
                         .Where(edit => edit != null)
                         .Select(edit => new MenuItemViewModel() {
                             Header = ThemeManager.GetString(edit!.Name),
-                            InputGesture = KeyTranslator.GetGesture(edit.Name),
+                            InputGesture = KeyTranslator.GetGestureForMenu(edit.Name),
                             Command = noteBatchEditCommand,
                             CommandParameter = edit,
                         })
@@ -173,35 +173,35 @@ namespace OpenUtau.App.Controls {
 
             ViewModel.NoteBatchEdits.Insert(6, new MenuItemViewModel() {
                 Header = ThemeManager.GetString("pianoroll.menu.notes.addbreath"),
-                InputGesture = KeyTranslator.GetGesture("Add Breath"),
+                InputGesture = KeyTranslator.GetGestureForMenu("Add Breath"),
                 Command = ReactiveCommand.Create(() => {
                     AddBreathNote();
                 })
             });
             ViewModel.NoteBatchEdits.Insert(9, new MenuItemViewModel() {
                 Header = ThemeManager.GetString("pianoroll.menu.notes.quantize"),
-                InputGesture = KeyTranslator.GetGesture("Quantize Notes"),
+                InputGesture = KeyTranslator.GetGestureForMenu("Quantize Notes"),
                 Command = ReactiveCommand.Create(() => {
                     QuantizeNotes();
                 })
             });
             ViewModel.NoteBatchEdits.Add(new MenuItemViewModel() {
                 Header = ThemeManager.GetString("pianoroll.menu.notes.randomizetuning"),
-                InputGesture = KeyTranslator.GetGesture("Randomize Tuning"),
+                InputGesture = KeyTranslator.GetGestureForMenu("Randomize Tuning"),
                 Command = ReactiveCommand.Create(() => {
                     RandomizeTuning();
                 })
             });
             ViewModel.NoteBatchEdits.Add(new MenuItemViewModel() {
                 Header = ThemeManager.GetString("pianoroll.menu.notes.lengthencrossfade"),
-                InputGesture = KeyTranslator.GetGesture("Lengthen Crossfade"),
+                InputGesture = KeyTranslator.GetGestureForMenu("Lengthen Crossfade"),
                 Command = ReactiveCommand.Create(() => {
                     LengthenCrossfade();
                 })
             });
             ViewModel.LyricBatchEdits.Add(new MenuItemViewModel() {
                 Header = ThemeManager.GetString("lyricsreplace.replace"),
-                InputGesture = KeyTranslator.GetGesture("lyricsreplace.replace"),
+                InputGesture = KeyTranslator.GetGestureForMenu("lyricsreplace.replace"),
                 Command = ReactiveCommand.Create(() => {
                     ReplaceLyrics();
                 })
@@ -823,18 +823,18 @@ namespace OpenUtau.App.Controls {
                             Header = ThemeManager.GetString("context.note.copy"),
                             Command = ViewModel.NoteCopyCommand,
                             CommandParameter = hitInfo,
-                            InputGesture = KeyTranslator.GetGesture("Copy"),
+                            InputGesture = KeyTranslator.GetGestureForMenu("Copy"),
                         });
                         ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
                             Header = ThemeManager.GetString("context.note.delete"),
                             Command = ViewModel.NoteDeleteCommand,
                             CommandParameter = hitInfo,
-                            InputGesture = KeyTranslator.GetGesture("DeleteNotes"),
+                            InputGesture = KeyTranslator.GetGestureForMenu("DeleteNotes"),
                         });
                         ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
                             Header = ThemeManager.GetString("context.note.pasteparameters"),
                             Command = ReactiveCommand.Create(() => ViewModel.NotesViewModel.PasteSelectedParams(RootWindow)),
-                            InputGesture = KeyTranslator.GetGesture("PasteParameters"),
+                            InputGesture = KeyTranslator.GetGestureForMenu("PasteParameters"),
                         });
                         ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
                             Header = ThemeManager.GetString("pianoroll.menu.notes"),
@@ -1393,7 +1393,7 @@ namespace OpenUtau.App.Controls {
             string mainPenIdx = Preferences.Default.PenPlusDefault ? "2+" : "2";
             string altPenIdx = Preferences.Default.PenPlusDefault ? "2" : "2+";
 
-            string? action = KeyTranslator.GetActionIdForShortcut(args.Key, args.KeyModifiers);
+            string? action = KeyTranslator.GetActionIdFromKey(args.Key, args.KeyModifiers);
 
             switch (action) {
                 // Playback & Selection
@@ -1488,20 +1488,9 @@ namespace OpenUtau.App.Controls {
                 // Edit Operations
                 case "Undo": ViewModel.Undo(); return true;
                 case "Redo": ViewModel.Redo(); return true;
-                case "Copy":
-                    if (curveVm.IsSelected(notesVm.PrimaryKey)) curveVm.Copy(notesVm.Part);
-                    else notesVm.CopyNotes();
-                    return true;
-                case "Cut":
-                    if (curveVm.IsSelected(notesVm.PrimaryKey)) curveVm.Cut(notesVm.Part);
-                    else notesVm.CutNotes();
-                    return true;
-                case "Paste":
-                    if (DocManager.Inst.NotesClipboard != null && DocManager.Inst.NotesClipboard.Count > 0) notesVm.PasteNotes();
-                    else if (DocManager.Inst.CurvesClipboard != null && project.tracks[notesVm.Part.trackNo].TryGetExpDescriptor(project, notesVm.PrimaryKey, out var descriptor)) {
-                        curveVm.Paste(notesVm.Part, descriptor);
-                    }
-                    return true;
+                case "Copy": ViewModel.Copy(); return true;
+                case "Cut": ViewModel.Cut(); return true;
+                case "Paste": ViewModel.Paste(); return true;
                 case "PastePlain": notesVm.PastePlainNotes(); return true;
                 case "PasteParameters": notesVm.PasteSelectedParams(RootWindow); return true;
                 case "InsertNote": notesVm.InsertNote(); return true;
@@ -1575,15 +1564,6 @@ namespace OpenUtau.App.Controls {
                 foreach (var menu in allDynamicMenus) {
                     if (menu.CommandParameter is BatchEdit edit && edit.Name == action) {
                         menu.Command?.Execute(edit);
-                        return true;
-                    }
-                }
-            }
-            // Legacy plugins
-            if (!string.IsNullOrEmpty(action)) {
-                foreach (var menu in ViewModel.LegacyPlugins) {
-                    if (menu.Header?.ToString() == action) {
-                        menu.Command?.Execute(menu.CommandParameter);
                         return true;
                     }
                 }

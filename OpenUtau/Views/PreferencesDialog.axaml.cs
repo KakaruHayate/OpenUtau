@@ -18,6 +18,7 @@ namespace OpenUtau.App.Views {
             InitializeComponent();
         }
 
+        // Todo: move to another dialog
         protected override void OnKeyDown(KeyEventArgs e) {
             if (DataContext is PreferencesViewModel vm && vm.ActiveShortcut != null) {
                 // If they hit escape without modifiers, cancel listening
@@ -43,7 +44,7 @@ namespace OpenUtau.App.Views {
                 btn.DataContext is ShortcutItemViewModel item) {
                 
                 if (DataContext is PreferencesViewModel vm) {
-                    vm.ResetShortcut(item);
+                    //vm.ResetShortcut(item);
                     e.Handled = true;
                 }
             }

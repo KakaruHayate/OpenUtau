@@ -7,7 +7,6 @@ using System.Text;
 using Newtonsoft.Json;
 using OpenUtau.Core.Render;
 using Serilog;
-using System.Collections.Generic;
 
 namespace OpenUtau.Core.Util {
 
@@ -226,6 +225,7 @@ namespace OpenUtau.Core.Util {
             public bool LockUnselectedNotesVibrato = true;
             public bool LockUnselectedNotesExpressions = true;
             public ShortcutBinding[] Shortcuts = [];
+            public ShortcutBinding[] PluginShortcuts = [];
             public bool VoicebankPublishUseIgnore = true;
             public string VoicebankPublishIgnores = @"#Adobe Audition
 *.pkf

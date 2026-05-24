@@ -1,47 +1,27 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reactive.Concurrency;
 using System.Runtime.InteropServices;
 using Avalonia.Input;
 using OpenUtau.Core.Util;
-using SharpCompress;
 
 namespace OpenUtau.App.ViewModels {
     public class ShortcutKey {
         public string ActionId { get; set; }
-        //public string KeyName { get; set; } 
-        //public string ModifiersName { get; set; }
         public KeyGesture Gesture { get; set; }
 
         public ShortcutKey(string actionId, string shortcut) {
             ActionId = actionId;
             KeyGesture key = KeyGesture.Parse(shortcut);
-            if (KeyTranslator.IsMac) {
-                var m = key.KeyModifiers;
-                bool hasCtrl = m.HasFlag(KeyModifiers.Control);
-                bool hasMeta = m.HasFlag(KeyModifiers.Meta);
-                if (hasCtrl) {
-                    m &= ~KeyModifiers.Control;
-                    m |= KeyModifiers.Meta; 
-                }
-                if (hasMeta) {
-                    m &= ~KeyModifiers.Meta;
-                    m |= KeyModifiers.Control; 
-                }
-                Gesture = new KeyGesture(key.Key, m);
-            } else {
-                Gesture = key;
-            }
+            Gesture = KeyTranslator.GestureConverter(key);
         }
 
-        public override string ToString() => KeyTranslator.GetFriendlyName(Gesture.Key, Gesture.KeyModifiers);
+        public override string ToString() => $"{ActionId}: {KeyTranslator.GetFriendlyName(Gesture.Key, Gesture.KeyModifiers)}";
     }
     
     public static class KeyTranslator {
         public static readonly bool IsMac = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
         public static List<ShortcutKey> Shortcuts { get; set; } = new List<ShortcutKey>();
-        private static Preferences.ShortcutBinding[] DefShortcuts { get; }
+        public static Preferences.ShortcutBinding[] DefShortcuts { get; }
 
         static KeyTranslator() {
             DefShortcuts = [
@@ -225,31 +205,48 @@ namespace OpenUtau.App.ViewModels {
 
         public static void LoadShortcuts() {
             Shortcuts.Clear();
-            var def = DefShortcuts.ToList();
-            foreach (var sc in Preferences.Default.Shortcuts) {
-                var defSc = def.FirstOrDefault(defSc => defSc.ActionId == sc.ActionId);
-                if (defSc != null) {
-                    defSc.Shortcuts = sc.Shortcuts;
+            Shortcuts = GetMergedShortcuts().SelectMany(s => s.Shortcuts
+                .Select(key => new ShortcutKey(s.ActionId, key)))
+                .Where(key => key.Gesture.Key != Key.None)
+                .ToList();
+            //merged.AddRange(Preferences.Default.PluginShortcuts); Todo
+        }
+
+        public static List<Preferences.ShortcutBinding> GetMergedShortcuts() {
+            var merged = new List<Preferences.ShortcutBinding>();
+            foreach (var sc in DefShortcuts) {
+                var customized = Preferences.Default.Shortcuts.FirstOrDefault(pref => pref.ActionId == sc.ActionId);
+                if (customized != null) {
+                    merged.Add(new Preferences.ShortcutBinding(sc.ActionId, customized.Shortcuts));
+                } else {
+                    merged.Add(sc);
                 }
             }
-            Shortcuts = def.SelectMany(s => s.Shortcuts
-                .Select(key => new ShortcutKey(s.ActionId, key))).ToList();
+            return merged;
         }
 
         public static void SaveShortcuts(IEnumerable<ShortcutItemViewModel> items) {
             var diff = new List<Preferences.ShortcutBinding>();
+            var plugin = new  List<Preferences.ShortcutBinding>();
             foreach (var item in items) {
                 var defKey = DefShortcuts.FirstOrDefault(s => s.ActionId == item.ActionId);
                 if (defKey != null) {
-                    var gestures = item.Gestures.Select(g => g.ToString()).ToArray();
+                    item.Gestures.RemoveAll(g => g.Key == Key.None);
+                    var gestures = item.Gestures.Select(g => GestureConverter(g).ToString()).ToArray();
                     if (defKey.Shortcuts.Length != gestures.Length) {
                         diff.Add(new Preferences.ShortcutBinding(item.ActionId, gestures));
                     } else if (defKey.Shortcuts.OrderBy(x => x).SequenceEqual(gestures.OrderBy(x => x))) {
                         diff.Add(new Preferences.ShortcutBinding(item.ActionId, gestures));
                     }
+                } else {
+                    item.Gestures.RemoveAll(g => g.Key == Key.None);
+                    if (item.Gestures.Count == 0) continue;
+                    var gestures = item.Gestures.Select(g => GestureConverter(g).ToString()).ToArray();
+                    plugin.Add(new Preferences.ShortcutBinding(item.ActionId, gestures));
                 }
             }
             Preferences.Default.Shortcuts = diff.ToArray();
+            Preferences.Default.PluginShortcuts = plugin.ToArray();
             Preferences.Save();
             LoadShortcuts();
         }
@@ -260,12 +257,31 @@ namespace OpenUtau.App.ViewModels {
             LoadShortcuts();
         }
 
-        public static KeyGesture? GetGesture(string actionId) {
+        public static KeyGesture GestureConverter(KeyGesture gesture) {
+            if (IsMac) {
+                var m = gesture.KeyModifiers;
+                bool hasCtrl = m.HasFlag(KeyModifiers.Control);
+                bool hasMeta = m.HasFlag(KeyModifiers.Meta);
+                if (hasCtrl) {
+                    m &= ~KeyModifiers.Control;
+                    m |= KeyModifiers.Meta; 
+                }
+                if (hasMeta) {
+                    m &= ~KeyModifiers.Meta;
+                    m |= KeyModifiers.Control;
+                }
+                return new KeyGesture(gesture.Key, m);
+            } else {
+                return gesture;
+            }
+        }
+
+        public static KeyGesture? GetGestureForMenu(string actionId) {
             // Since only one shortcut can be displayed in the menu, if there are multiple shortcuts, it returns the first one
             return Shortcuts.FirstOrDefault(s => s.ActionId == actionId)?.Gesture;
         }
         
-        public static string? GetActionIdForShortcut(Key pressedKey, KeyModifiers pressedMods) {
+        public static string? GetActionIdFromKey(Key pressedKey, KeyModifiers pressedMods) {
             foreach (var sc in Shortcuts) {
                 if (IsKeyMatch(sc.Gesture.Key, pressedKey) && sc.Gesture.KeyModifiers == pressedMods) {
                     return sc.ActionId;
@@ -310,8 +326,8 @@ namespace OpenUtau.App.ViewModels {
                 // Navigation & Editing
                 "Escape" => "Esc",
                 "Return" => "Enter",
-                "Back" => IsMac ? "Delete" : "Backspace",
-                "Delete" => IsMac ? "Forward Del" : "Del",
+                "Back" => "Backspace",
+                "Delete" => "Delete",
                 "Insert" => "Ins",
                 "PageUp" => "PgUp",
                 "PageDown" => "PgDn",
@@ -354,11 +370,8 @@ namespace OpenUtau.App.ViewModels {
 
         public static string GetFriendlyModifiersName(KeyModifiers modifiers) {
             if (modifiers == KeyModifiers.None) return string.Empty;
-            
-            // Apply macOS normalization before rendering strings
-            //modifiers = NormalizeModifiers(modifiers);
 
-            var parts = new System.Collections.Generic.List<string>();
+            var parts = new List<string>();
             if (modifiers.HasFlag(KeyModifiers.Control)) {
                 parts.Add(IsMac ? "⌃" : "Ctrl");
             }
