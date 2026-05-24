@@ -47,19 +47,6 @@ namespace OpenUtau.App.Controls {
 
         private Window RootWindow => (Window) TopLevel.GetTopLevel(this)!;
 
-        string? GetActionIdForShortcut(Key pressedKey, KeyModifiers pressedMods) {
-            foreach (var sc in Preferences.Default.Shortcuts) {
-                if (Enum.TryParse(sc.KeyName, out Key parsedKey) && 
-                    Enum.TryParse(sc.ModifiersName, out KeyModifiers parsedMods)) {
-                    
-                    if (KeyTranslator.IsKeyMatch(parsedKey, pressedKey) && parsedMods == pressedMods) {
-                        return sc.ActionId;
-                    }
-                }
-            }
-            return null;
-        }
-
         public PianoRoll(PianoRollViewModel model) {
             InitializeComponent();
             DataContext = ViewModel = model;
@@ -125,22 +112,11 @@ namespace OpenUtau.App.Controls {
                 new BakePitch(),
                 new RandomizeTiming(),
                 new RandomizePhonemeOffset()
-            }.Select(edit => {
-                Avalonia.Input.KeyGesture? menuGesture = null;
-                var savedSc = Preferences.Default.Shortcuts?.FirstOrDefault(s => s.ActionId == edit.Name);
-                if (savedSc != null && 
-                    Enum.TryParse<Avalonia.Input.Key>(savedSc.KeyName, out var parsedKey) && 
-                    Enum.TryParse<Avalonia.Input.KeyModifiers>(savedSc.ModifiersName, out var parsedMods) && 
-                    parsedKey != Avalonia.Input.Key.None) {
-                    menuGesture = new Avalonia.Input.KeyGesture(parsedKey, parsedMods);
-                }
-
-                return new MenuItemViewModel() {
-                    Header = ThemeManager.GetString(edit.Name),
-                    InputGesture = menuGesture,
-                    Command = noteBatchEditCommand,
-                    CommandParameter = edit,
-                };
+            }.Select(edit => new MenuItemViewModel() {
+                Header = ThemeManager.GetString(edit.Name),
+                InputGesture = KeyTranslator.GetGesture(edit.Name),
+                Command = noteBatchEditCommand,
+                CommandParameter = edit,
             }));
 
             ViewModel.LyricBatchEdits.AddRange(new List<BatchEdit>() {
@@ -155,22 +131,11 @@ namespace OpenUtau.App.Controls {
                 new DashToPlus(),
                 new DashToPlusTilda(),
                 new InsertSlur(),
-            }.Select(edit => {
-                Avalonia.Input.KeyGesture? menuGesture = null;
-                var savedSc = Preferences.Default.Shortcuts?.FirstOrDefault(s => s.ActionId == edit.Name);
-                if (savedSc != null && 
-                    Enum.TryParse<Avalonia.Input.Key>(savedSc.KeyName, out var parsedKey) && 
-                    Enum.TryParse<Avalonia.Input.KeyModifiers>(savedSc.ModifiersName, out var parsedMods) && 
-                    parsedKey != Avalonia.Input.Key.None) {
-                    menuGesture = new Avalonia.Input.KeyGesture(parsedKey, parsedMods);
-                }
-
-                return new MenuItemViewModel() {
-                    Header = ThemeManager.GetString(edit.Name),
-                    InputGesture = menuGesture,
-                    Command = noteBatchEditCommand,
-                    CommandParameter = edit,
-                };
+            }.Select(edit => new MenuItemViewModel() {
+                Header = ThemeManager.GetString(edit.Name),
+                InputGesture = KeyTranslator.GetGesture(edit.Name),
+                Command = noteBatchEditCommand,
+                CommandParameter = edit,
             }));
 
             ViewModel.ResetBatchEdits.AddRange(new List<BatchEdit>() {
@@ -181,45 +146,23 @@ namespace OpenUtau.App.Controls {
                 new ResetVibratos(),
                 new ClearTimings(),
                 new ResetAliases(),
-            }.Select(edit => {
-                Avalonia.Input.KeyGesture? menuGesture = null;
-                var savedSc = Preferences.Default.Shortcuts?.FirstOrDefault(s => s.ActionId == edit.Name);
-                if (savedSc != null && 
-                    Enum.TryParse<Avalonia.Input.Key>(savedSc.KeyName, out var parsedKey) && 
-                    Enum.TryParse<Avalonia.Input.KeyModifiers>(savedSc.ModifiersName, out var parsedMods) && 
-                    parsedKey != Avalonia.Input.Key.None) {
-                    menuGesture = new Avalonia.Input.KeyGesture(parsedKey, parsedMods);
-                }
-
-                return new MenuItemViewModel() {
-                    Header = ThemeManager.GetString(edit.Name),
-                    InputGesture = menuGesture,
-                    Command = noteBatchEditCommand,
-                    CommandParameter = edit,
-                };
+            }.Select(edit => new MenuItemViewModel() {
+                Header = ThemeManager.GetString(edit.Name),
+                InputGesture = KeyTranslator.GetGesture(edit.Name),
+                Command = noteBatchEditCommand,
+                CommandParameter = edit,
             }));
+            
             try {
                 ViewModel.ExternalBatchEdits.AddRange(
                     DocManager.Inst.ExternalBatchEditTypes
                         .Select(type => Activator.CreateInstance(type) as BatchEdit)
                         .Where(edit => edit != null)
-                        .Select(edit => {
-                            Avalonia.Input.KeyGesture? menuGesture = null;
-                            var savedSc = Preferences.Default.Shortcuts?.FirstOrDefault(s => s.ActionId == edit!.Name);
-                            
-                            if (savedSc != null && 
-                                Enum.TryParse<Avalonia.Input.Key>(savedSc.KeyName, out var parsedKey) && 
-                                Enum.TryParse<Avalonia.Input.KeyModifiers>(savedSc.ModifiersName, out var parsedMods) && 
-                                parsedKey != Avalonia.Input.Key.None) {
-                                menuGesture = new Avalonia.Input.KeyGesture(parsedKey, parsedMods);
-                            }
-
-                            return new MenuItemViewModel() {
-                                Header = ThemeManager.GetString(edit!.Name),
-                                InputGesture = menuGesture,
-                                Command = noteBatchEditCommand,
-                                CommandParameter = edit,
-                            };
+                        .Select(edit => new MenuItemViewModel() {
+                            Header = ThemeManager.GetString(edit!.Name),
+                            InputGesture = KeyTranslator.GetGesture(edit.Name),
+                            Command = noteBatchEditCommand,
+                            CommandParameter = edit,
                         })
                 );
             } catch (Exception e) {
@@ -1450,7 +1393,7 @@ namespace OpenUtau.App.Controls {
             string mainPenIdx = Preferences.Default.PenPlusDefault ? "2+" : "2";
             string altPenIdx = Preferences.Default.PenPlusDefault ? "2" : "2+";
 
-            string? action = GetActionIdForShortcut(args.Key, args.KeyModifiers);
+            string? action = KeyTranslator.GetActionIdForShortcut(args.Key, args.KeyModifiers);
 
             switch (action) {
                 // Playback & Selection
