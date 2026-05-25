@@ -213,6 +213,8 @@ namespace OpenUtau.App.ViewModels {
             });
             LoadLegacyPlugins();
             DocManager.Inst.AddSubscriber(this);
+            MessageBus.Current.Listen<ShortcutsRefreshEvent>()
+                .Subscribe(_ => ReloadShortcuts());
         }
 
         private void SetUndoState() {

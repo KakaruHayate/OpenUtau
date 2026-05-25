@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Avalonia.Input;
@@ -29,8 +29,8 @@ namespace OpenUtau.App.ViewModels {
                 new Preferences.ShortcutBinding("PlayOrPause", ["Space"]),
                 new Preferences.ShortcutBinding("PlaySelection", ["Alt+Space"]),
                 new Preferences.ShortcutBinding("ClearSelection", ["Escape"]),
-                new Preferences.ShortcutBinding("SelectAll", ["Control+A"]),
-                new Preferences.ShortcutBinding("DeselectAll", ["Control+D"]),
+                new Preferences.ShortcutBinding("SelectAll", ["Ctrl+A"]),
+                new Preferences.ShortcutBinding("DeselectAll", ["Ctrl+D"]),
 
                 // UI & Windows
                 new Preferences.ShortcutBinding("HideDetachedWindow", ["Alt+F4"]),
@@ -38,17 +38,17 @@ namespace OpenUtau.App.ViewModels {
                 new Preferences.ShortcutBinding("OpenPluginMenu", ["N"]),
 
                 // Lyrics
-                new Preferences.ShortcutBinding("EditLyrics", ["Enter"]),
+                new Preferences.ShortcutBinding("EditLyrics", ["Return"]),
 
                 // Tools
                 new Preferences.ShortcutBinding("ToolSelect1", ["D1"]),
                 new Preferences.ShortcutBinding("ToolSelect2Main", ["D2"]),
-                new Preferences.ShortcutBinding("ToolSelect2Alt", ["Control+D2"]),
+                new Preferences.ShortcutBinding("ToolSelect2Alt", ["Ctrl+D2"]),
                 new Preferences.ShortcutBinding("ToolSelect3", ["D3"]),
                 new Preferences.ShortcutBinding("ToolSelect4Main", ["D4"]),
-                new Preferences.ShortcutBinding("ToolSelect4Overwrite", ["Control+D4"]),
+                new Preferences.ShortcutBinding("ToolSelect4Overwrite", ["Ctrl+D4"]),
                 new Preferences.ShortcutBinding("ToolSelect4Line", ["Shift+D4"]),
-                new Preferences.ShortcutBinding("ToolSelect4LineOverwrite", ["Control+Shift+D4"]),
+                new Preferences.ShortcutBinding("ToolSelect4LineOverwrite", ["Ctrl+Shift+D4"]),
                 new Preferences.ShortcutBinding("ToolSelect5", ["D5"]),
 
                 // Expressions
@@ -78,42 +78,42 @@ namespace OpenUtau.App.ViewModels {
 
                 // Transposition
                 new Preferences.ShortcutBinding("TransposeUp", ["Up"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.octaveup", ["Control+Up"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.octaveup", ["Ctrl+Up"]),
                 new Preferences.ShortcutBinding("TransposeDown", ["Down"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.octavedown", ["Control+Down"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.octavedown", ["Ctrl+Down"]),
 
                 // Note Movement & Sizing
                 new Preferences.ShortcutBinding("MoveCursorLeft", ["Left"]),
                 new Preferences.ShortcutBinding("ResizeNotesLeft", ["Alt+Left"]),
-                new Preferences.ShortcutBinding("MoveNotesLeft", ["Control+Left"]),
+                new Preferences.ShortcutBinding("MoveNotesLeft", ["Ctrl+Left"]),
                 new Preferences.ShortcutBinding("ExtendSelectionLeft", ["Shift+Left"]),
                 new Preferences.ShortcutBinding("MoveCursorRight", ["Right"]),
                 new Preferences.ShortcutBinding("ResizeNotesRight", ["Alt+Right"]),
-                new Preferences.ShortcutBinding("MoveNotesRight", ["Control+Right"]),
+                new Preferences.ShortcutBinding("MoveNotesRight", ["Ctrl+Right"]),
                 new Preferences.ShortcutBinding("ExtendSelectionRight", ["Shift+Right"]),
 
                 // Edit Operations
-                new Preferences.ShortcutBinding("Undo", ["Control+Z"]),
-                new Preferences.ShortcutBinding("Redo", ["Control+Y", "Control+Shift+Z"]),
-                new Preferences.ShortcutBinding("Copy", ["Control+C"]),
-                new Preferences.ShortcutBinding("Cut", ["Control+X"]),
-                new Preferences.ShortcutBinding("Paste", ["Control+V"]),
-                new Preferences.ShortcutBinding("PastePlain", ["Control+Shift+V"]),
+                new Preferences.ShortcutBinding("Undo", ["Ctrl+Z"]),
+                new Preferences.ShortcutBinding("Redo", ["Ctrl+Y", "Ctrl+Shift+Z"]),
+                new Preferences.ShortcutBinding("Copy", ["Ctrl+C"]),
+                new Preferences.ShortcutBinding("Cut", ["Ctrl+X"]),
+                new Preferences.ShortcutBinding("Paste", ["Ctrl+V"]),
+                new Preferences.ShortcutBinding("PastePlain", ["Ctrl+Shift+V"]),
                 new Preferences.ShortcutBinding("PasteParameters", ["Alt+V"]),
                 new Preferences.ShortcutBinding("InsertNote", ["Insert"]),
                 new Preferences.ShortcutBinding("DeleteNotes", ["Delete"]),
-                new Preferences.ShortcutBinding("MergeNotes", ["Control+U"]),
+                new Preferences.ShortcutBinding("MergeNotes", ["Ctrl+U"]),
 
                 // Playhead & Timeline Navigation
                 new Preferences.ShortcutBinding("PlayheadHome", ["Home"]),
                 new Preferences.ShortcutBinding("SelectToStart", ["Shift+Home"]),
                 new Preferences.ShortcutBinding("PlayheadEnd", ["End"]),
                 new Preferences.ShortcutBinding("SelectToEnd", ["Shift+End"]),
-                new Preferences.ShortcutBinding("PlayheadLeft", ["OemOpenBrackets"]),
-                new Preferences.ShortcutBinding("PlayheadToSelectionStart", ["Control+OemOpenBrackets"]),
-                new Preferences.ShortcutBinding("PlayheadToViewStart", ["Shift+OemOpenBrackets"]),
+                new Preferences.ShortcutBinding("PlayheadLeft", ["Oem4"]),
+                new Preferences.ShortcutBinding("PlayheadToSelectionStart", ["Ctrl+Oem4"]),
+                new Preferences.ShortcutBinding("PlayheadToViewStart", ["Shift+Oem4"]),
                 new Preferences.ShortcutBinding("PlayheadRight", ["OemCloseBrackets"]),
-                new Preferences.ShortcutBinding("PlayheadToSelectionEnd", ["Control+OemCloseBrackets"]),
+                new Preferences.ShortcutBinding("PlayheadToSelectionEnd", ["Ctrl+OemCloseBrackets"]),
                 new Preferences.ShortcutBinding("PlayheadToViewEnd", ["Shift+OemCloseBrackets"]),
 
                 // Scrolling & Zooming
@@ -125,74 +125,74 @@ namespace OpenUtau.App.ViewModels {
                 new Preferences.ShortcutBinding("ZoomOut", ["Q"]),
 
                 // Track & Project Operations
-                new Preferences.ShortcutBinding("SaveProject", ["Control+S"]),
+                new Preferences.ShortcutBinding("SaveProject", ["Ctrl+S"]),
                 new Preferences.ShortcutBinding("SoloTrack", ["Shift+S"]),
                 new Preferences.ShortcutBinding("MuteTrack", ["Shift+M"]),
                 new Preferences.ShortcutBinding("FocusSelection", ["F"]),
-                new Preferences.ShortcutBinding("SearchNote", ["Control+F"]),
+                new Preferences.ShortcutBinding("SearchNote", ["Ctrl+F"]),
 
                 // Parts Navigation
                 new Preferences.ShortcutBinding("MoveToNextPartUp", ["PageUp"]),
                 new Preferences.ShortcutBinding("MoveToNextPartDown", ["PageDown"]),
 
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.loadrenderedpitch", ["Control+R"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.refreshrealcurves", ["Control+Shift+R"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.loadrenderedpitch", ["Ctrl+R"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.refreshrealcurves", ["Ctrl+Shift+R"]),
                 new Preferences.ShortcutBinding("pianoroll.menu.notes.bakepitch", ["Alt+K"]),
 
                 // Tails and Overlap
                 new Preferences.ShortcutBinding("pianoroll.menu.notes.addtaildash", ["Alt+OemMinus"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.addtailrest", ["Alt+Shift+R"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.removetaildash", ["Control+Alt+OemMinus"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.removetailrest", ["Control+Alt+R"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.addtailrest", ["Shift+Alt+R"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.removetaildash", ["Ctrl+Alt+OemMinus"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.removetailrest", ["Ctrl+Alt+R"]),
                 new Preferences.ShortcutBinding("pianoroll.menu.notes.fixoverlap", ["Alt+F"]),
                 new Preferences.ShortcutBinding("pianoroll.menu.notes.autolegato", ["Alt+A"]),
 
                 // Common notes
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.commonnotecopy", ["Control+Shift+C"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.commonnotepaste", ["Control+Shift+P"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.commonnotecopy", ["Ctrl+Shift+C"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.commonnotepaste", ["Ctrl+Shift+P"]),
 
                 // Timings
                 new Preferences.ShortcutBinding("pianoroll.menu.notes.randomizetiming", ["Alt+T"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.randomizeoffset", ["Control+Alt+T"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.randomizeoffset", ["Ctrl+Alt+T"]),
 
                 // Lang
-                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.romajitohiragana", ["Control+Shift+J"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.hiraganatoromaji", ["Control+Alt+J"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.javcvtocv", ["Control+Shift+K"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.hanzitopinyin", ["Control+Alt+H"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.romajitohiragana", ["Ctrl+Shift+J"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.hiraganatoromaji", ["Ctrl+Alt+J"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.javcvtocv", ["Ctrl+Shift+K"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.hanzitopinyin", ["Ctrl+Alt+H"]),
 
                 // Suffixes and Phonetic Hints
-                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.removetonesuffix", ["Control+Alt+S"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.removelettersuffix", ["Control+Shift+S"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.movesuffixtovoicecolor", ["Control+Alt+C"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.removephonetichint", ["Control+Alt+P"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.removetonesuffix", ["Ctrl+Alt+S"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.removelettersuffix", ["Ctrl+Shift+S"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.movesuffixtovoicecolor", ["Ctrl+Alt+C"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.removephonetichint", ["Ctrl+Alt+P"]),
 
                 // Dash and Slur
                 new Preferences.ShortcutBinding("pianoroll.menu.lyrics.dashtoplus", ["Alt+OemPlus"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.dashtoplustilda", ["Control+Alt+OemPlus"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.lyrics.dashtoplustilda", ["Ctrl+Alt+OemPlus"]),
                 new Preferences.ShortcutBinding("pianoroll.menu.lyrics.insertslur", ["Alt+I"]),
 
                 // Reset
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.reset.all", ["Control+Shift+Delete"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.reset.allparameters", ["Control+Alt+I"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.reset.exps", ["Control+Shift+E"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.clear.vibratos", ["Control+Alt+V"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.reset.vibratos", ["Control+Shift+U"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.reset.pitchbends", ["Control+Alt+B"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.reset.phonemetimings", ["Control+Shift+T"]),
-                new Preferences.ShortcutBinding("pianoroll.menu.notes.reset.aliases", ["Control+Alt+A"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.reset.all", ["Ctrl+Shift+Delete"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.reset.allparameters", ["Ctrl+Alt+I"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.reset.exps", ["Ctrl+Shift+E"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.clear.vibratos", ["Ctrl+Alt+V"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.reset.vibratos", ["Ctrl+Shift+U"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.reset.pitchbends", ["Ctrl+Alt+B"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.reset.phonemetimings", ["Ctrl+Shift+T"]),
+                new Preferences.ShortcutBinding("pianoroll.menu.notes.reset.aliases", ["Ctrl+Alt+A"]),
 
                 // other toggles
-                new Preferences.ShortcutBinding("Lock Pitch Points", ["Control+Shift+L"]),
-                new Preferences.ShortcutBinding("Lock Vibrato", ["Control+Alt+U"]),
-                new Preferences.ShortcutBinding("Lock Expressions", ["Control+Alt+E"]),
-                new Preferences.ShortcutBinding("Show Portrait", ["Alt+Shift+P"]),
-                new Preferences.ShortcutBinding("Show Icon", ["Alt+Shift+I"]),
+                new Preferences.ShortcutBinding("Lock Pitch Points", ["Ctrl+Shift+L"]),
+                new Preferences.ShortcutBinding("Lock Vibrato", ["Ctrl+Alt+U"]),
+                new Preferences.ShortcutBinding("Lock Expressions", ["Ctrl+Alt+E"]),
+                new Preferences.ShortcutBinding("Show Portrait", ["Shift+Alt+P"]),
+                new Preferences.ShortcutBinding("Show Icon", ["Shift+Alt+I"]),
                 new Preferences.ShortcutBinding("Show Ghost Notes", ["Alt+G"]),
                 new Preferences.ShortcutBinding("Use Track Color", ["Alt+C"]),
-                new Preferences.ShortcutBinding("Detach Piano Roll", ["Alt+Shift+D"]),
-                new Preferences.ShortcutBinding("Hide Piano Roll", ["Alt+Shift+H"]),
-                new Preferences.ShortcutBinding("lyricsreplace.replace", ["Control+H"]),
+                new Preferences.ShortcutBinding("Detach Piano Roll", ["Shift+Alt+D"]),
+                new Preferences.ShortcutBinding("Hide Piano Roll", ["Shift+Alt+H"]),
+                new Preferences.ShortcutBinding("lyricsreplace.replace", ["Ctrl+H"]),
                 new Preferences.ShortcutBinding("Quantize Notes", ["Alt+Q"]),
                 new Preferences.ShortcutBinding("Randomize Tuning", ["Alt+R"]),
                 new Preferences.ShortcutBinding("Lengthen Crossfade", ["Alt+L"]),
@@ -235,7 +235,7 @@ namespace OpenUtau.App.ViewModels {
                     var gestures = item.Gestures.Select(g => GestureConverter(g).ToString()).ToArray();
                     if (defKey.Shortcuts.Length != gestures.Length) {
                         diff.Add(new Preferences.ShortcutBinding(item.ActionId, gestures));
-                    } else if (defKey.Shortcuts.OrderBy(x => x).SequenceEqual(gestures.OrderBy(x => x))) {
+                    } else if (!defKey.Shortcuts.OrderBy(x => x).SequenceEqual(gestures.OrderBy(x => x))) {
                         diff.Add(new Preferences.ShortcutBinding(item.ActionId, gestures));
                     }
                 } else {
@@ -253,6 +253,7 @@ namespace OpenUtau.App.ViewModels {
 
         public static void ResetShortcuts() {
             Preferences.Default.Shortcuts = [];
+            Preferences.Default.PluginShortcuts = [];
             Preferences.Save();
             LoadShortcuts();
         }

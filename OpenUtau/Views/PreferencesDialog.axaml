@@ -5,12 +5,12 @@
         xmlns:vm="using:OpenUtau.App.ViewModels"
         xmlns:controls="clr-namespace:Material.Styles.Controls;assembly=Material.Styles"
         xmlns:styles="clr-namespace:Material.Styles;assembly=Material.Styles"
-        mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="490"
+        mc:Ignorable="d" d:DesignWidth="700" d:DesignHeight="480"
         x:Class="OpenUtau.App.Views.PreferencesDialog"
         Icon="/Assets/open-utau.ico"
         Title="{DynamicResource prefs.caption}"
         WindowStartupLocation="CenterScreen"
-        Width="700" Height="490">
+        Width="700" Height="480">
   <Window.Resources>
     <vm:CultureNameConverter x:Key="cultureNameConverter"/>
   </Window.Resources>
@@ -62,7 +62,7 @@
       <ListBoxItem Content="{DynamicResource prefs.advanced}"/>
       <ListBoxItem Content="{DynamicResource prefs.shortcuts}"/>
     </ListBox>
-    <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Visible">
+    <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
       <Carousel Name="PageCarousel" Margin="10" HorizontalAlignment="Stretch" 
           SelectedIndex="{Binding ElementName=DrawerList, Path=SelectedIndex}">
         <!-- General -->
@@ -360,7 +360,7 @@
         </StackPanel>
 
         <!-- Shortcuts -->
-        <Grid RowDefinitions="Auto, Auto, Auto, *">
+        <Grid RowDefinitions="Auto, Auto, Auto, *" Height="460">
           <TextBlock Grid.Row="0" 
                 Text="{DynamicResource prefs.shortcuts}" 
                 Margin="0,10,0,10" 
@@ -374,28 +374,40 @@
                 Content="{DynamicResource pianoroll.menu.reset}" 
                 Command="{Binding ResetAllShortcuts}" />
           </Grid>
-          <TextBlock Grid.Row="2" 
-                Text="{DynamicResource prefs.note.restart}" 
-                Margin="5,0,5,10" 
-                FontStyle="Italic" 
-                Opacity="0.75" 
-                TextWrapping="Wrap"/>
-          <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Visible">
+          <TextBlock Grid.Row="2" Classes="restart"/>
+          <ScrollViewer Grid.Row="3" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Visible" Padding="0,0,10,0">
             <ItemsControl ItemsSource="{Binding FilteredShortcuts}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <Grid ColumnDefinitions="*, Auto" Margin="5">
+                  <Grid ColumnDefinitions="*, Auto, 5, Auto" Margin="5">
                     <TextBlock Grid.Column="0" 
                           Text="{Binding ActionName}" 
                           VerticalAlignment="Center" 
                           TextWrapping="Wrap"/>
                     <Button Grid.Column="1" 
-                          Content="{Binding DisplayString}" 
+                          Content="{Binding DisplayString}"
                           x:CompileBindings="False"
                           Command="{Binding $parent[Window].DataContext.ListenForShortcutCommand}" 
                           CommandParameter="{Binding}"
                           PointerReleased="OnShortcutRightClick"
-                          ToolTip.Tip="{DynamicResource prefs.shortcut.tooltip}"/>
+                          ToolTip.Tip="{DynamicResource prefs.shortcut.tooltip}"
+                          Focusable="False"/>
+                    <Button Grid.Column="3" MinWidth="10"
+                          Content="..."
+                          Click="OnShortcutMiscClick"
+                          Focusable="False">
+                          <Button.ContextMenu>
+                            <ContextMenu ItemsSource="{Binding ContextMenuItems}">
+                              <ContextMenu.Styles>
+                                <Style Selector="MenuItem">
+                                  <Setter Property="Header" Value="{Binding Header}"/>
+                                  <Setter Property="Command" Value="{Binding Command}"/>
+                                  <Setter Property="Height" Value="{Binding Height}"/>
+                                </Style>
+                              </ContextMenu.Styles>
+                            </ContextMenu>
+                          </Button.ContextMenu>
+                    </Button>
                   </Grid>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>

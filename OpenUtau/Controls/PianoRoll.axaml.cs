@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.IO;
 using System.Linq;
 using System.Reactive;
-using System.Reflection;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -1394,6 +1392,7 @@ namespace OpenUtau.App.Controls {
             string altPenIdx = Preferences.Default.PenPlusDefault ? "2" : "2+";
 
             string? action = KeyTranslator.GetActionIdFromKey(args.Key, args.KeyModifiers);
+            if (action == null) return false;
 
             switch (action) {
                 // Playback & Selection
@@ -1555,19 +1554,17 @@ namespace OpenUtau.App.Controls {
                 case "Hide Piano Roll": OnMenuHidePianoRoll(this, new RoutedEventArgs()); return true;
             }
             // External and batch note edits
-            if (!string.IsNullOrEmpty(action)) {
-                var allDynamicMenus = ViewModel.NoteBatchEdits
-                    .Concat(ViewModel.LyricBatchEdits)
-                    .Concat(ViewModel.ResetBatchEdits)
-                    .Concat(ViewModel.ExternalBatchEdits);
-
-                foreach (var menu in allDynamicMenus) {
-                    if (menu.CommandParameter is BatchEdit edit && edit.Name == action) {
-                        menu.Command?.Execute(edit);
-                        return true;
-                    }
+            var allDynamicMenus = ViewModel.NoteBatchEdits
+                .Concat(ViewModel.LyricBatchEdits)
+                .Concat(ViewModel.ResetBatchEdits)
+                .Concat(ViewModel.ExternalBatchEdits);
+            foreach (var menu in allDynamicMenus) {
+                if (menu.CommandParameter is BatchEdit edit && edit.Name == action) {
+                    menu.Command?.Execute(edit);
+                    return true;
                 }
             }
+
             return false;
         }
 

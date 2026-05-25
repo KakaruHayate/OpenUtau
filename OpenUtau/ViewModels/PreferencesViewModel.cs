@@ -1,22 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reactive;
 using System.Reactive.Linq;
 using System.Text.RegularExpressions;
+using Avalonia.Input;
 using OpenUtau.Audio;
 using OpenUtau.Classic;
 using OpenUtau.Core;
+using OpenUtau.Core.Render;
 using OpenUtau.Core.Util;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
-using OpenUtau.Core.Render;
 using Serilog;
-using Avalonia.Input;
-using System.Collections.ObjectModel;
-using System.Reactive;
-using OpenUtau.Core.Editing;
 
 namespace OpenUtau.App.ViewModels {
     public class LyricsHelperOption {
@@ -30,10 +29,14 @@ namespace OpenUtau.App.ViewModels {
     }
     public class ShortcutsRefreshEvent { }
     public class ShortcutItemViewModel : ViewModelBase {
-        public string ActionName { get; set; } = string.Empty;
-        public string ActionId { get; set; } = string.Empty;
+        public string ActionName { get; } = string.Empty;
+        public string ActionId { get; } = string.Empty;
+
         public List<KeyGesture> Gestures { get; set; } = new List<KeyGesture>();
-        [Reactive] public bool IsListening { get; set; }
+        public bool IsListening { get; set; } = false;
+        public bool IsAdding { get; set; } = false;
+
+        public ObservableCollection<MenuItemViewModel> ContextMenuItems { get; set; } = new ObservableCollection<MenuItemViewModel>();
 
         public string DisplayString {
             get {
@@ -42,9 +45,12 @@ namespace OpenUtau.App.ViewModels {
                 return Gestures.Count == 0 ? "None" : text;
             }
         }
-        
+
+        public Action? Save;
+        public Action<ShortcutItemViewModel>? ListenForShortcut;
+
         public ShortcutItemViewModel() {}
-        public ShortcutItemViewModel(Preferences.ShortcutBinding binding) {
+        public ShortcutItemViewModel(Preferences.ShortcutBinding binding, Action save, Action<ShortcutItemViewModel>? listenForShortcut) {
             string lookupKey = "shortcut." + binding.ActionId;
             string displayName = ThemeManager.GetString(lookupKey);
             if (string.IsNullOrEmpty(displayName) || displayName == lookupKey) {
@@ -60,6 +66,42 @@ namespace OpenUtau.App.ViewModels {
             ActionId = binding.ActionId;
             ActionName = displayName;
             Gestures = binding.Shortcuts.Select(s => KeyTranslator.GestureConverter(KeyGesture.Parse(s))).ToList();
+            Save = save;
+            ListenForShortcut = listenForShortcut;
+        }
+
+        public void CreateMenuItem() {
+            ContextMenuItems.Clear();
+            ContextMenuItems.Add(new MenuItemViewModel() { Header = "Add", Command = ReactiveCommand.Create(() => {
+                IsAdding = true;
+                ListenForShortcut?.Invoke(this);
+            })});
+            foreach (var gesture in Gestures) {
+                var text = $"Delete \"{KeyTranslator.GetFriendlyName(gesture.Key, gesture.KeyModifiers)}\"";
+                ContextMenuItems.Add(new MenuItemViewModel() { Header = text, Command = ReactiveCommand.Create(() => Delete(gesture)) });
+            }
+            ContextMenuItems.Add(new MenuItemViewModel() { Header = "Reset", Command = ReactiveCommand.Create(() => Reset()) });
+        }
+
+        public void Delete(KeyGesture gesture) {
+            Gestures.Remove(gesture);
+            IsAdding = false;
+            IsListening = false;
+            RefreshDisplay();
+            Save?.Invoke();
+        }
+
+        public void Reset() {
+            var binding = KeyTranslator.DefShortcuts.FirstOrDefault(s => s.ActionId == ActionId);
+            if (binding == null) {
+                Gestures.Clear();
+            } else {
+                Gestures = binding.Shortcuts.Select(s => KeyTranslator.GestureConverter(KeyGesture.Parse(s))).ToList();
+            }
+            IsAdding = false;
+            IsListening = false;
+            RefreshDisplay();
+            Save?.Invoke();
         }
 
         public void RefreshDisplay() {
@@ -520,7 +562,7 @@ namespace OpenUtau.App.ViewModels {
         }
 
         private void LoadShortcuts() {
-            var shortcuts = KeyTranslator.GetMergedShortcuts().Select(binding => new ShortcutItemViewModel(binding));
+            var shortcuts = KeyTranslator.GetMergedShortcuts().Select(binding => new ShortcutItemViewModel(binding, () => SaveShortcuts(), item => ListenForShortcut(item)));
             allShortcuts.AddRange(shortcuts);
             /* Todo
             // external batch edits
@@ -563,10 +605,11 @@ namespace OpenUtau.App.ViewModels {
                 }
             }*/
         }
-        
+
         public void ListenForShortcut(ShortcutItemViewModel item) {
             // Cancel any existing listening item
             if (ActiveShortcut != null) {
+                ActiveShortcut.IsAdding = false;
                 ActiveShortcut.IsListening = false;
                 ActiveShortcut.RefreshDisplay();
             }
@@ -578,20 +621,19 @@ namespace OpenUtau.App.ViewModels {
 
         private void SaveShortcuts() {
             KeyTranslator.SaveShortcuts(allShortcuts);
-            LoadShortcuts();
             MessageBus.Current.SendMessage(new ShortcutsRefreshEvent());
         }
 
-        // Todo
         public void AssignShortcut(Key key, KeyModifiers modifiers) {
-            /*if (ActiveShortcut == null) return;
+            if (ActiveShortcut == null) return;
             if (key == Key.LeftCtrl || key == Key.RightCtrl || key == Key.LeftShift || key == Key.RightShift || key == Key.LeftAlt || key == Key.RightAlt || key == Key.LWin || key == Key.RWin) {
                 return;
             }
 
-            var duplicate = allShortcuts.FirstOrDefault(s => s != ActiveShortcut && s.Key == key && s.Modifiers == modifiers);
+            var duplicate = allShortcuts.FirstOrDefault(s => s != ActiveShortcut && s.Gestures.Any(g => g.Key == key && g.KeyModifiers == modifiers));
             
             if (duplicate != null) {
+                ActiveShortcut.IsAdding = false;
                 ActiveShortcut.IsListening = false;
                 ActiveShortcut.RefreshDisplay();
                 ActiveShortcut = null;
@@ -600,11 +642,14 @@ namespace OpenUtau.App.ViewModels {
                 DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(message));
                 return; 
             }
-            ActiveShortcut.Key = key;
-            ActiveShortcut.Modifiers = modifiers;
+            if (!ActiveShortcut.IsAdding) {
+                ActiveShortcut.Gestures.Clear();
+            }
+            ActiveShortcut.Gestures.Add(new KeyGesture(key, modifiers));
+            ActiveShortcut.IsAdding = false;
             ActiveShortcut.IsListening = false;
             ActiveShortcut.RefreshDisplay();
-            ActiveShortcut = null;*/
+            ActiveShortcut = null;
             SaveShortcuts();
         }
 
