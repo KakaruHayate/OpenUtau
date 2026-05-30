@@ -31,7 +31,7 @@ namespace OpenUtau.Core.DiffSinger {
         public double[]? breathiness = null;
         public double[]? voicing = null;
         public double[]? tension = null;
-
+        public double[]? shift_mouth_opening = null;
         public DiffSingerScript(RenderPhrase phrase, DsScriptExportOptions options) {
             float headMs = DiffSingerUtils.GetHeadMs(phrase);
             float tailMs = DiffSingerUtils.GetTailMs(phrase);
@@ -118,6 +118,14 @@ namespace OpenUtau.Core.DiffSinger {
                 velocity = DiffSingerUtils.SampleCurve(phrase, velocityCurve.Item2,
                     0, frameMs, totalFrames, headFrames, tailFrames,
                     x=>Math.Pow(2, (x - 100) / 100));
+            }
+
+            //shmc
+            var shmcCurve = phrase.curves.FirstOrDefault(curve => curve.Item1 == DiffSingerUtils.SHMC);
+            if (shmcCurve != null && singer?.dsConfig.use_shift_mouth_opening_embed == true) {
+                shift_mouth_opening = DiffSingerUtils.SampleCurve(phrase, shmcCurve.Item2,
+                    0, frameMs, totalFrames, headFrames, tailFrames,
+                    x => x / 100.0);
             }
 
             //voicebank specific features
@@ -230,7 +238,8 @@ namespace OpenUtau.Core.DiffSinger {
         public string? voicing = null;
         public string? tension_timestep = null;
         public string? tension = null;
-
+        public string? shift_mouth_opening = null;
+        public string? shift_mouth_opening_timestep = null;
         static string FormatMsAsSeconds(double ms) {
             return (ms / 1000).ToString("G9", CultureInfo.InvariantCulture);
         }
@@ -266,6 +275,11 @@ namespace OpenUtau.Core.DiffSinger {
             if (script.velocity != null) {
                 velocity_timestep = f0_timestep;
                 velocity = String.Join(" ", script.velocity.Select(FormatValue));
+            }
+
+            if (script.shift_mouth_opening != null) {
+                shift_mouth_opening_timestep = f0_timestep;
+                shift_mouth_opening = String.Join(" ", script.shift_mouth_opening.Select(FormatValue));
             }
 
             if (script.energy != null) {
