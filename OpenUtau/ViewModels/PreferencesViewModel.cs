@@ -11,6 +11,7 @@ using Avalonia.Input;
 using OpenUtau.Audio;
 using OpenUtau.Classic;
 using OpenUtau.Core;
+using OpenUtau.Core.Editing;
 using OpenUtau.Core.Render;
 using OpenUtau.Core.Util;
 using ReactiveUI;
@@ -40,9 +41,9 @@ namespace OpenUtau.App.ViewModels {
 
         public string DisplayString {
             get {
-                if (IsListening) return ThemeManager.GetString("prefs.shortcuts.listening") ?? "Press keys...";
+                if (IsListening) return ThemeManager.GetString("prefs.shortcuts.listening");
                 var text = string.Join(", ", Gestures.Select(g => KeyTranslator.GetFriendlyName(g.Key, g.KeyModifiers)));
-                return Gestures.Count == 0 ? "None" : text;
+                return Gestures.Count == 0 ? "(None)" : text;
             }
         }
 
@@ -50,24 +51,32 @@ namespace OpenUtau.App.ViewModels {
         public Action<ShortcutItemViewModel>? ListenForShortcut;
 
         public ShortcutItemViewModel() {}
-        public ShortcutItemViewModel(Preferences.ShortcutBinding binding, Action save, Action<ShortcutItemViewModel>? listenForShortcut) {
-            string lookupKey = "shortcut." + binding.ActionId;
+        public ShortcutItemViewModel(Preferences.ShortcutBinding binding, Action save, Action<ShortcutItemViewModel>? listenForShortcut, string prefix = "") {
+            ActionId = binding.ActionId;
+            ActionName = $"{prefix}{GetDisplayName(binding.ActionId)}";
+            Gestures = binding.Shortcuts.Select(KeyTranslator.StringToGesture).ToList();
+            Save = save;
+            ListenForShortcut = listenForShortcut;
+        }
+        public ShortcutItemViewModel(string actionId, Action save, Action<ShortcutItemViewModel>? listenForShortcut, string prefix = "") {
+            ActionId = actionId;
+            ActionName = $"{prefix}{GetDisplayName(ActionId)}";
+            Save = save;
+            ListenForShortcut = listenForShortcut;
+        }
+        private string GetDisplayName(string actionId) {
+            string lookupKey = "shortcut." + actionId;
             string displayName = ThemeManager.GetString(lookupKey);
             if (string.IsNullOrEmpty(displayName) || displayName == lookupKey) {
-                displayName = ThemeManager.GetString(binding.ActionId);
+                displayName = ThemeManager.GetString(actionId);
             }
             if (string.IsNullOrEmpty(displayName)) {
-                displayName = binding.ActionId;
+                displayName = actionId;
             }
             if (displayName.StartsWith("shortcut.")) {
                 displayName = displayName.Substring(9);
             }
-
-            ActionId = binding.ActionId;
-            ActionName = displayName;
-            Gestures = binding.Shortcuts.Select(s => KeyTranslator.GestureConverter(KeyGesture.Parse(s))).ToList();
-            Save = save;
-            ListenForShortcut = listenForShortcut;
+            return displayName;
         }
 
         public void CreateMenuItem() {
@@ -96,7 +105,7 @@ namespace OpenUtau.App.ViewModels {
             if (binding == null) {
                 Gestures.Clear();
             } else {
-                Gestures = binding.Shortcuts.Select(s => KeyTranslator.GestureConverter(KeyGesture.Parse(s))).ToList();
+                Gestures = binding.Shortcuts.Select(KeyTranslator.StringToGesture).ToList();
             }
             IsAdding = false;
             IsListening = false;
@@ -564,46 +573,19 @@ namespace OpenUtau.App.ViewModels {
         private void LoadShortcuts() {
             var shortcuts = KeyTranslator.GetMergedShortcuts().Select(binding => new ShortcutItemViewModel(binding, () => SaveShortcuts(), item => ListenForShortcut(item)));
             allShortcuts.AddRange(shortcuts);
-            /* Todo
+
             // external batch edits
+            var prefix = $"{ThemeManager.GetString("pianoroll.menu.external")}: ";
             foreach (var type in DocManager.Inst.ExternalBatchEditTypes) {
-                try {
-                    if (Activator.CreateInstance(type) is BatchEdit edit) {
-                        
-                        var savedSc = Preferences.Default.Shortcuts?.FirstOrDefault(s => s.ActionId == edit.Name);
-                        Key savedKey = Key.None;
-                        KeyModifiers savedMods = KeyModifiers.None;
-                        
-                        if (savedSc != null) {
-                            Enum.TryParse(savedSc.KeyName, out savedKey);
-                            Enum.TryParse(savedSc.ModifiersName, out savedMods);
-                        }
-
-                        string pluginName = edit.Name;
-                        if (allShortcuts.Any(s => s.ActionId == pluginName)) {
-                            continue; 
-                        }
-                        
-                        string lookupKey = "shortcut." + pluginName;
-                        string displayName = ThemeManager.GetString(lookupKey);
-                        
-                        if (string.IsNullOrEmpty(displayName) || displayName == lookupKey) {
-                            displayName = pluginName;
-                        }
-                        if (displayName.StartsWith("shortcut.")) {
-                            displayName = displayName.Substring(9);
-                        }
-
-                        allShortcuts.Add(new ShortcutItemViewModel {
-                            ActionId = pluginName, 
-                            ActionName = displayName,
-                            Key = savedKey,
-                            Modifiers = savedMods
-                        });
+                if (Activator.CreateInstance(type) is BatchEdit edit) {
+                    var customized = Preferences.Default.PluginShortcuts.FirstOrDefault(pref => pref.ActionId == edit.Name);
+                    if (customized != null) {
+                        allShortcuts.Add(new ShortcutItemViewModel(customized, () => SaveShortcuts(), item => ListenForShortcut(item), prefix));
+                    } else if (!allShortcuts.Any(s => s.ActionId == edit.Name)) {
+                        allShortcuts.Add(new ShortcutItemViewModel(edit.Name, () => SaveShortcuts(), item => ListenForShortcut(item), prefix));
                     }
-                } catch { 
                 }
-            }*/
+            }
         }
 
         public void ListenForShortcut(ShortcutItemViewModel item) {
@@ -637,9 +619,9 @@ namespace OpenUtau.App.ViewModels {
                 ActiveShortcut.IsListening = false;
                 ActiveShortcut.RefreshDisplay();
                 ActiveShortcut = null;
-                string formatString = ThemeManager.GetString("prefs.shortcuts.duplicate") ?? "The shortcut '{0}' is already assigned to '{1}'.";
-                string message = string.Format(formatString, duplicate.DisplayString, duplicate.ActionName);
-                DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(message));
+
+                var e = new MessageCustomizableException("The shortcut is already assigned.", "<translate:prefs.shortcuts.duplicate>", new ArgumentException(), false, [duplicate.DisplayString, duplicate.ActionName]);
+                DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(e));
                 return; 
             }
             if (!ActiveShortcut.IsAdding) {

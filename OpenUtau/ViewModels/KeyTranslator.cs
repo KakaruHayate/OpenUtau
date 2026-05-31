@@ -1,7 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Avalonia.Input;
+using OpenUtau.Core;
+using OpenUtau.Core.Editing;
 using OpenUtau.Core.Util;
 
 namespace OpenUtau.App.ViewModels {
@@ -11,8 +14,7 @@ namespace OpenUtau.App.ViewModels {
 
         public ShortcutKey(string actionId, string shortcut) {
             ActionId = actionId;
-            KeyGesture key = KeyGesture.Parse(shortcut);
-            Gesture = KeyTranslator.GestureConverter(key);
+            Gesture = KeyTranslator.StringToGesture(shortcut);
         }
 
         public override string ToString() => $"{ActionId}: {KeyTranslator.GetFriendlyName(Gesture.Key, Gesture.KeyModifiers)}";
@@ -209,7 +211,15 @@ namespace OpenUtau.App.ViewModels {
                 .Select(key => new ShortcutKey(s.ActionId, key)))
                 .Where(key => key.Gesture.Key != Key.None)
                 .ToList();
-            //merged.AddRange(Preferences.Default.PluginShortcuts); Todo
+
+            // external batch edits
+            var edits = DocManager.Inst.ExternalBatchEditTypes
+                .Select(type => Activator.CreateInstance(type) as BatchEdit)
+                .OfType<BatchEdit>();
+            Shortcuts.AddRange(Preferences.Default.PluginShortcuts.SelectMany(s => s.Shortcuts
+                .Where(key => edits.Any(edit => edit.Name == s.ActionId))
+                .Select(key => new ShortcutKey(s.ActionId, key)))
+                .Where(key => key.Gesture.Key != Key.None));
         }
 
         public static List<Preferences.ShortcutBinding> GetMergedShortcuts() {
@@ -228,20 +238,24 @@ namespace OpenUtau.App.ViewModels {
         public static void SaveShortcuts(IEnumerable<ShortcutItemViewModel> items) {
             var diff = new List<Preferences.ShortcutBinding>();
             var plugin = new  List<Preferences.ShortcutBinding>();
+            var edits = DocManager.Inst.ExternalBatchEditTypes
+                .Select(type => Activator.CreateInstance(type) as BatchEdit)
+                .OfType<BatchEdit>();
+
             foreach (var item in items) {
                 var defKey = DefShortcuts.FirstOrDefault(s => s.ActionId == item.ActionId);
                 if (defKey != null) {
                     item.Gestures.RemoveAll(g => g.Key == Key.None);
-                    var gestures = item.Gestures.Select(g => GestureConverter(g).ToString()).ToArray();
+                    var gestures = item.Gestures.Select(GestureToString).ToArray();
                     if (defKey.Shortcuts.Length != gestures.Length) {
                         diff.Add(new Preferences.ShortcutBinding(item.ActionId, gestures));
                     } else if (!defKey.Shortcuts.OrderBy(x => x).SequenceEqual(gestures.OrderBy(x => x))) {
                         diff.Add(new Preferences.ShortcutBinding(item.ActionId, gestures));
                     }
-                } else {
+                } else if (edits.Any(edit => edit.Name == item.ActionId)) {
                     item.Gestures.RemoveAll(g => g.Key == Key.None);
                     if (item.Gestures.Count == 0) continue;
-                    var gestures = item.Gestures.Select(g => GestureConverter(g).ToString()).ToArray();
+                    var gestures = item.Gestures.Select(GestureToString).ToArray();
                     plugin.Add(new Preferences.ShortcutBinding(item.ActionId, gestures));
                 }
             }
@@ -258,14 +272,25 @@ namespace OpenUtau.App.ViewModels {
             LoadShortcuts();
         }
 
-        public static KeyGesture GestureConverter(KeyGesture gesture) {
+        public static KeyGesture StringToGesture(string shortcut) {
+            try {
+                var gesture = KeyGesture.Parse(shortcut);
+                return GestureConverter(gesture);
+            } catch {
+                return new KeyGesture(Key.None);
+            }
+        }
+        public static string GestureToString(KeyGesture gesture) {
+            return GestureConverter(gesture).ToString();
+        }
+        private static KeyGesture GestureConverter(KeyGesture gesture) {
             if (IsMac) {
                 var m = gesture.KeyModifiers;
                 bool hasCtrl = m.HasFlag(KeyModifiers.Control);
                 bool hasMeta = m.HasFlag(KeyModifiers.Meta);
                 if (hasCtrl) {
                     m &= ~KeyModifiers.Control;
-                    m |= KeyModifiers.Meta; 
+                    m |= KeyModifiers.Meta;
                 }
                 if (hasMeta) {
                     m &= ~KeyModifiers.Meta;

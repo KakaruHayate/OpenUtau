@@ -28,7 +28,6 @@ namespace OpenUtau.App.Controls {
     }
 
     public partial class PianoRoll : UserControl, IValueTip, ICmdSubscriber {
-
         public MainWindow? MainWindow { get; set; }
         public PianoRollViewModel ViewModel;
 
@@ -43,7 +42,7 @@ namespace OpenUtau.App.Controls {
         private ReactiveCommand<Unit, Unit>? noteDefaultsCommand;
         private ReactiveCommand<BatchEdit, Unit>? noteBatchEditCommand;
 
-        private Window RootWindow => (Window) TopLevel.GetTopLevel(this)!;
+        private Window RootWindow => (Window)TopLevel.GetTopLevel(this)!;
 
         public PianoRoll(PianoRollViewModel model) {
             InitializeComponent();
@@ -116,7 +115,6 @@ namespace OpenUtau.App.Controls {
                 Command = noteBatchEditCommand,
                 CommandParameter = edit,
             }));
-
             ViewModel.LyricBatchEdits.AddRange(new List<BatchEdit>() {
                 new RomajiToHiragana(),
                 new HiraganaToRomaji(),
@@ -135,7 +133,6 @@ namespace OpenUtau.App.Controls {
                 Command = noteBatchEditCommand,
                 CommandParameter = edit,
             }));
-
             ViewModel.ResetBatchEdits.AddRange(new List<BatchEdit>() {
                 new ResetAll(),
                 new ResetPitchBends(),
@@ -150,7 +147,6 @@ namespace OpenUtau.App.Controls {
                 Command = noteBatchEditCommand,
                 CommandParameter = edit,
             }));
-            
             try {
                 ViewModel.ExternalBatchEdits.AddRange(
                     DocManager.Inst.ExternalBatchEditTypes
@@ -1356,9 +1352,8 @@ namespace OpenUtau.App.Controls {
         // To add a new keyboard shortcut to the Piano Roll:
         // 
         // 1. Add a new `case "YourActionName":` inside the switch statement below.
-        // 2. Open `Preferences.cs` and add a default key binding to the `Shortcuts` list
-        //    (e.g., new ShortcutBinding { ActionId = "YourActionName", KeyName = "...", ModifiersName = "..." })
-        // 3. Open `Strings.axaml` (and other language files) and add the display name:
+        // 2. Open `KeyTranslator.cs` and add a default key binding to the `Shortcuts` list
+        // 3. Open `Strings.axaml` and add the display name:
         //    <system:String x:Key="shortcut.YourActionName">Shortcut Name</system:String>
 
         bool OnKeyExtendedHandler(KeyEventArgs args) {
@@ -1372,13 +1367,7 @@ namespace OpenUtau.App.Controls {
             int snapUnit = project.resolution * 4 / notesVm.SnapDiv;
             int deltaTicks = notesVm.IsSnapOn ? snapUnit : 15;
 
-            bool isNone = args.KeyModifiers == KeyModifiers.None;
-            bool isAlt = args.KeyModifiers == KeyModifiers.Alt;
-            bool isCtrl = args.KeyModifiers == cmdKey;
-            bool isShift = args.KeyModifiers == KeyModifiers.Shift;
-            bool isBoth = args.KeyModifiers == (cmdKey | KeyModifiers.Shift);
-
-            if (PluginMenu.IsSubMenuOpen && isNone) {
+            if (PluginMenu.IsSubMenuOpen && args.KeyModifiers == KeyModifiers.None) {
                 if (ViewModel.LegacyPluginShortcuts.ContainsKey(args.Key)) {
                     var plugin = ViewModel.LegacyPluginShortcuts[args.Key];
                     if (plugin != null && plugin.Command != null) {

@@ -391,7 +391,8 @@
                           CommandParameter="{Binding}"
                           PointerReleased="OnShortcutRightClick"
                           ToolTip.Tip="{DynamicResource prefs.shortcut.tooltip}"
-                          Focusable="False"/>
+                          Focusable="False"
+                          MinWidth="55"/>
                     <Button Grid.Column="3" MinWidth="10"
                           Content="..."
                           Click="OnShortcutMiscClick"
