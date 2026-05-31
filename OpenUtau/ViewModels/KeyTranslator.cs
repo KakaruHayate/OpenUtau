@@ -35,8 +35,8 @@ namespace OpenUtau.App.ViewModels {
                 new Preferences.ShortcutBinding("DeselectAll", ["Ctrl+D"]),
 
                 // UI & Windows
-                new Preferences.ShortcutBinding("HideDetachedWindow", ["Alt+F4"]),
-                new Preferences.ShortcutBinding("FullScreen", ["F11"]),
+                new Preferences.ShortcutBinding("CloseWindow", ["Alt+F4"]),
+                new Preferences.ShortcutBinding("menu.tools.fullscreen", ["F11"]),
                 new Preferences.ShortcutBinding("OpenPluginMenu", ["N"]),
 
                 // Lyrics
@@ -95,15 +95,15 @@ namespace OpenUtau.App.ViewModels {
                 new Preferences.ShortcutBinding("ExtendSelectionRight", ["Shift+Right"]),
 
                 // Edit Operations
-                new Preferences.ShortcutBinding("Undo", ["Ctrl+Z"]),
-                new Preferences.ShortcutBinding("Redo", ["Ctrl+Y", "Ctrl+Shift+Z"]),
-                new Preferences.ShortcutBinding("Copy", ["Ctrl+C"]),
-                new Preferences.ShortcutBinding("Cut", ["Ctrl+X"]),
-                new Preferences.ShortcutBinding("Paste", ["Ctrl+V"]),
+                new Preferences.ShortcutBinding("menu.edit.undo", ["Ctrl+Z"]),
+                new Preferences.ShortcutBinding("menu.edit.redo", ["Ctrl+Y", "Ctrl+Shift+Z"]),
+                new Preferences.ShortcutBinding("menu.edit.copy", ["Ctrl+C"]),
+                new Preferences.ShortcutBinding("menu.edit.cut", ["Ctrl+X"]),
+                new Preferences.ShortcutBinding("menu.edit.paste", ["Ctrl+V"]),
                 new Preferences.ShortcutBinding("PastePlain", ["Ctrl+Shift+V"]),
                 new Preferences.ShortcutBinding("PasteParameters", ["Alt+V"]),
                 new Preferences.ShortcutBinding("InsertNote", ["Insert"]),
-                new Preferences.ShortcutBinding("DeleteNotes", ["Delete"]),
+                new Preferences.ShortcutBinding("menu.edit.delete", ["Delete"]),
                 new Preferences.ShortcutBinding("MergeNotes", ["Ctrl+U"]),
 
                 // Playhead & Timeline Navigation
@@ -127,15 +127,18 @@ namespace OpenUtau.App.ViewModels {
                 new Preferences.ShortcutBinding("ZoomOut", ["Q"]),
 
                 // Track & Project Operations
+                new Preferences.ShortcutBinding("NewProject", ["Ctrl+N"]),
+                new Preferences.ShortcutBinding("OpenProject", ["Ctrl+O"]),
                 new Preferences.ShortcutBinding("SaveProject", ["Ctrl+S"]),
+                new Preferences.ShortcutBinding("SaveProjectAs", ["Ctrl+Shift+S"]),
                 new Preferences.ShortcutBinding("SoloTrack", ["Shift+S"]),
                 new Preferences.ShortcutBinding("MuteTrack", ["Shift+M"]),
                 new Preferences.ShortcutBinding("FocusSelection", ["F"]),
                 new Preferences.ShortcutBinding("SearchNote", ["Ctrl+F"]),
 
                 // Parts Navigation
-                new Preferences.ShortcutBinding("MoveToNextPartUp", ["PageUp"]),
-                new Preferences.ShortcutBinding("MoveToNextPartDown", ["PageDown"]),
+                new Preferences.ShortcutBinding("MoveToNextPart", ["PageDown"]),
+                new Preferences.ShortcutBinding("MoveToPrevPart", ["PageUp"]),
 
                 new Preferences.ShortcutBinding("pianoroll.menu.notes.loadrenderedpitch", ["Ctrl+R"]),
                 new Preferences.ShortcutBinding("pianoroll.menu.notes.refreshrealcurves", ["Ctrl+Shift+R"]),

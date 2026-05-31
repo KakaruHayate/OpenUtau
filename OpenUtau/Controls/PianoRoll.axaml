@@ -215,14 +215,14 @@
             </Menu.Styles>
 
             <MenuItem Header="{DynamicResource menu.edit}">
-              <MenuItem Header="{Binding UndoText}" InputGesture="{Binding Hotkeys[Undo]}" Command="{Binding Undo}" IsEnabled="{Binding CanUndo}"/>
-              <MenuItem Header="{Binding RedoText}" InputGesture="{Binding Hotkeys[Redo]}" Command="{Binding Redo}" IsEnabled="{Binding CanRedo}"/>
+              <MenuItem Header="{Binding UndoText}" InputGesture="{Binding Hotkeys[menu.edit.undo]}" Command="{Binding Undo}" IsEnabled="{Binding CanUndo}"/>
+              <MenuItem Header="{Binding RedoText}" InputGesture="{Binding Hotkeys[menu.edit.redo]}" Command="{Binding Redo}" IsEnabled="{Binding CanRedo}"/>
               <MenuItem Header="-" Height="1"/>
-              <MenuItem Header="{DynamicResource menu.edit.cut}" InputGesture="{Binding Hotkeys[Cut]}" Command="{Binding Cut}"/>
-              <MenuItem Header="{DynamicResource menu.edit.copy}" InputGesture="{Binding Hotkeys[Copy]}" Command="{Binding Copy}"/>
-              <MenuItem Header="{DynamicResource menu.edit.paste}" InputGesture="{Binding Hotkeys[Paste]}" Command="{Binding Paste}"/>
+              <MenuItem Header="{DynamicResource menu.edit.copy}" InputGesture="{Binding Hotkeys[menu.edit.copy]}" Command="{Binding Copy}"/>
+              <MenuItem Header="{DynamicResource menu.edit.cut}" InputGesture="{Binding Hotkeys[menu.edit.cut]}" Command="{Binding Cut}"/>
+              <MenuItem Header="{DynamicResource menu.edit.paste}" InputGesture="{Binding Hotkeys[menu.edit.paste]}" Command="{Binding Paste}"/>
               <MenuItem Header="{DynamicResource menu.edit.pasteplainnotes}" InputGesture="{Binding Hotkeys[PastePlain]}" Command="{Binding PastePlain}"/>
-              <MenuItem Header="{DynamicResource menu.edit.delete}" InputGesture="{Binding Hotkeys[DeleteNotes]}" Command="{Binding Delete}"/>
+              <MenuItem Header="{DynamicResource menu.edit.delete}" InputGesture="{Binding Hotkeys[menu.edit.delete]}" Command="{Binding Delete}"/>
               <MenuItem Header="-" Height="1"/>
               <MenuItem Header="{DynamicResource pianoroll.menu.searchnote}" InputGesture="{Binding Hotkeys[SearchNote]}" Click="OnMenuSearchNote"/>
               <MenuItem Header="{DynamicResource menu.edit.selectall}" InputGesture="{Binding Hotkeys[SelectAll]}" Command="{Binding SelectAll}"/>
@@ -268,7 +268,7 @@
                   <CheckBox IsChecked="{Binding UseTrackColor}" />
                 </MenuItem.Icon>
               </MenuItem>
-              <MenuItem Header="{DynamicResource menu.tools.fullscreen}" InputGesture="{Binding Hotkeys[FullScreen]}" Click="OnMenuFullScreen"/>
+              <MenuItem Header="{DynamicResource menu.tools.fullscreen}" InputGesture="{Binding Hotkeys[menu.tools.fullscreen]}" Click="OnMenuFullScreen"/>
               <MenuItem Header="{DynamicResource prefs.appearance.degree}">
                 <MenuItem Header="{DynamicResource prefs.appearance.degree.off}" Click="OnMenuDegreeStyle" Tag="0">
                   <MenuItem.Icon>
@@ -326,7 +326,7 @@
                     <CheckBox IsChecked="{Binding PianoRollDetached}" />
                   </MenuItem.Icon>
                 </MenuItem>
-                <MenuItem Header="{DynamicResource pianoroll.menu.view.pianoroll.hide}" Click="OnMenuHidePianoRoll"/>
+                <MenuItem Header="{DynamicResource pianoroll.menu.view.pianoroll.hide}" InputGesture="{Binding Hotkeys[CloseWindow]}" Click="OnMenuHidePianoRoll"/>
               </MenuItem>
             </MenuItem>
 
@@ -340,7 +340,7 @@
               <MenuItem Header="{DynamicResource pianoroll.menu.lyrics}" ItemsSource="{Binding LyricBatchEdits}" Classes="MenuItemWithSubMenu"/>
               <MenuItem Header="{DynamicResource pianoroll.menu.reset}" ItemsSource="{Binding ResetBatchEdits}" Classes="MenuItemWithSubMenu"/>
               <MenuItem Header="{DynamicResource pianoroll.menu.external}" ItemsSource="{Binding ExternalBatchEdits}" Classes="MenuItemWithSubMenu"/>
-              <MenuItem Header="{DynamicResource pianoroll.menu.part.legacypluginexp}" ItemsSource="{Binding LegacyPlugins}" Name="PluginMenu" Classes="MenuItemWithSubMenu"/>
+              <MenuItem Header="{DynamicResource pianoroll.menu.part.legacypluginexp}" ItemsSource="{Binding LegacyPlugins}" Name="PluginMenu" InputGesture="{Binding Hotkeys[OpenPluginMenu]}" Classes="MenuItemWithSubMenu"/>
             </MenuItem>
             <MenuItem Header="{DynamicResource pianoroll.menu.lyrics.edit}" InputGesture="{Binding Hotkeys[EditLyrics]}" Click="OnMenuEditLyrics"/>
             <MenuItem Header="{DynamicResource pianoroll.menu.notedefaults}" Click="OnMenuNoteDefaults"/>

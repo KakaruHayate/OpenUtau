@@ -114,7 +114,6 @@ namespace OpenUtau.App.ViewModels {
         private ReactiveCommand<Classic.Plugin, Unit> legacyPluginCommand;
 
         public void ReloadShortcuts() {
-            KeyTranslator.LoadShortcuts();
             var newHotkeys = new Dictionary<string, KeyGesture>();
             foreach (var sc in KeyTranslator.Shortcuts) {
                 newHotkeys.TryAdd(sc.ActionId, sc.Gesture);

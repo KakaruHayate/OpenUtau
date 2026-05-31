@@ -1403,8 +1403,8 @@ namespace OpenUtau.App.Controls {
                 case "DeselectAll": notesVm.DeselectNotes(); return true;
 
                 // UI & Windows
-                case "HideDetachedWindow": if (RootWindow is PianoRollDetachedWindow) RootWindow.Hide(); return true;
-                case "FullScreen": OnMenuFullScreen(this, new RoutedEventArgs()); return true;
+                case "CloseWindow": if (RootWindow is PianoRollDetachedWindow) RootWindow.Hide(); return true;
+                case "menu.tools.fullscreen": OnMenuFullScreen(this, new RoutedEventArgs()); return true;
                 case "OpenPluginMenu": if (PluginMenu.Parent is MenuItem batch) { batch.Open(); PluginMenu.Open(); } return true;
 
                 // Lyrics
@@ -1474,15 +1474,15 @@ namespace OpenUtau.App.Controls {
                 case "ExtendSelectionRight": notesVm.ExtendSelection(1); return true;
 
                 // Edit Operations
-                case "Undo": ViewModel.Undo(); return true;
-                case "Redo": ViewModel.Redo(); return true;
-                case "Copy": ViewModel.Copy(); return true;
-                case "Cut": ViewModel.Cut(); return true;
-                case "Paste": ViewModel.Paste(); return true;
+                case "menu.edit.undo": ViewModel.Undo(); return true;
+                case "menu.edit.redo": ViewModel.Redo(); return true;
+                case "menu.edit.copy": ViewModel.Copy(); return true;
+                case "menu.edit.cut": ViewModel.Cut(); return true;
+                case "menu.edit.paste": ViewModel.Paste(); return true;
                 case "PastePlain": notesVm.PastePlainNotes(); return true;
                 case "PasteParameters": notesVm.PasteSelectedParams(RootWindow); return true;
                 case "InsertNote": notesVm.InsertNote(); return true;
-                case "DeleteNotes": notesVm.DeleteSelectedNotes(); return true;
+                case "menu.edit.delete": notesVm.DeleteSelectedNotes(); return true;
                 case "MergeNotes": notesVm.MergeSelectedNotes(); return true;
 
                 // Playhead & Timeline Navigation
@@ -1522,6 +1522,8 @@ namespace OpenUtau.App.Controls {
                     if (notesVm.Selection.FirstOrDefault() is UNote focusNote) DocManager.Inst.ExecuteCmd(new FocusNoteNotification(notesVm.Part, focusNote)); 
                     return true;
                 case "SearchNote": SearchNote(); return true;
+                case "MoveToNextPart": MoveToNextPart(true); return true;
+                case "MoveToPrevPart": MoveToNextPart(false); return true;
 
                 // others
                 case "Quantize Notes": QuantizeNotes(); return true;
