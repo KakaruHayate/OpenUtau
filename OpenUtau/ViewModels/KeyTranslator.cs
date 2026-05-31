@@ -223,6 +223,11 @@ namespace OpenUtau.App.ViewModels {
                 .Where(key => edits.Any(edit => edit.Name == s.ActionId))
                 .Select(key => new ShortcutKey(s.ActionId, key)))
                 .Where(key => key.Gesture.Key != Key.None));
+            // legacy plugins
+            Shortcuts.AddRange(Preferences.Default.PluginShortcuts.SelectMany(s => s.Shortcuts
+                .Where(key => DocManager.Inst.Plugins.Any(plugin => plugin.Name == s.ActionId))
+                .Select(key => new ShortcutKey(s.ActionId, key)))
+                .Where(key => key.Gesture.Key != Key.None));
         }
 
         public static List<Preferences.ShortcutBinding> GetMergedShortcuts() {
@@ -255,7 +260,7 @@ namespace OpenUtau.App.ViewModels {
                     } else if (!defKey.Shortcuts.OrderBy(x => x).SequenceEqual(gestures.OrderBy(x => x))) {
                         diff.Add(new Preferences.ShortcutBinding(item.ActionId, gestures));
                     }
-                } else if (edits.Any(edit => edit.Name == item.ActionId)) {
+                } else if (edits.Any(edit => edit.Name == item.ActionId) || DocManager.Inst.Plugins.Any(plugin => plugin.Name == item.ActionId)) {
                     item.Gestures.RemoveAll(g => g.Key == Key.None);
                     if (item.Gestures.Count == 0) continue;
                     var gestures = item.Gestures.Select(GestureToString).ToArray();

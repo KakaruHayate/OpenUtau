@@ -235,6 +235,7 @@ namespace OpenUtau.App.ViewModels {
             LegacyPlugins.Clear();
             LegacyPlugins.AddRange(DocManager.Inst.Plugins.Select(plugin => new MenuItemViewModel() {
                 Header = plugin.Name,
+                InputGesture = KeyTranslator.GetGestureForMenu(plugin.Name),
                 Command = legacyPluginCommand,
                 CommandParameter = plugin,
             }));

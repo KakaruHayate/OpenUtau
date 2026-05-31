@@ -817,13 +817,13 @@ namespace OpenUtau.App.Controls {
                             Header = ThemeManager.GetString("context.note.copy"),
                             Command = ViewModel.NoteCopyCommand,
                             CommandParameter = hitInfo,
-                            InputGesture = KeyTranslator.GetGestureForMenu("Copy"),
+                            InputGesture = KeyTranslator.GetGestureForMenu("menu.edit.copy"),
                         });
                         ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
                             Header = ThemeManager.GetString("context.note.delete"),
                             Command = ViewModel.NoteDeleteCommand,
                             CommandParameter = hitInfo,
-                            InputGesture = KeyTranslator.GetGestureForMenu("DeleteNotes"),
+                            InputGesture = KeyTranslator.GetGestureForMenu("menu.edit.delete"),
                         });
                         ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
                             Header = ThemeManager.GetString("context.note.pasteparameters"),
@@ -1555,7 +1555,13 @@ namespace OpenUtau.App.Controls {
                     return true;
                 }
             }
-
+            // Legacy plugins
+            foreach (var menu in ViewModel.LegacyPlugins) {
+                if (menu.Header?.ToString() == action) {
+                    menu.Command?.Execute(menu.CommandParameter);
+                    return true;
+                }
+            }
             return false;
         }
 

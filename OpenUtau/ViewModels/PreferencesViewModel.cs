@@ -586,6 +586,16 @@ namespace OpenUtau.App.ViewModels {
                     }
                 }
             }
+            // legacy plugins
+            prefix = $"{ThemeManager.GetString("pianoroll.menu.part.legacypluginexp")}: ";
+            foreach (var plugin in DocManager.Inst.Plugins) {
+                var customized = Preferences.Default.PluginShortcuts.FirstOrDefault(pref => pref.ActionId == plugin.Name);
+                if (customized != null) {
+                    allShortcuts.Add(new ShortcutItemViewModel(customized, () => SaveShortcuts(), item => ListenForShortcut(item), prefix));
+                } else if (!allShortcuts.Any(s => s.ActionId == plugin.Name)) {
+                    allShortcuts.Add(new ShortcutItemViewModel(plugin.Name, () => SaveShortcuts(), item => ListenForShortcut(item), prefix));
+                }
+            }
         }
 
         public void ListenForShortcut(ShortcutItemViewModel item) {
