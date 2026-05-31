@@ -344,9 +344,9 @@ namespace OpenUtau.App.ViewModels {
         public static string GetFriendlyName(string keyName) {
             return keyName switch {
                 // Modifiers
-                "Windows" or "LWin" or "RWin" => IsMac ? "⌃" : "Win",
+                "Windows" or "LWin" or "RWin" => IsMac ? "⌘" : "Win",
                 "LeftAlt" or "RightAlt" or "Alt" => IsMac ? "⌥" : "Alt",
-                "Control" or "LeftCtrl" or "RightCtrl" or "LControl" or "RControl" => IsMac ? "⌘" : "Ctrl",
+                "Control" or "LeftCtrl" or "RightCtrl" or "LControl" or "RControl" => IsMac ? "⌃" : "Ctrl",
                 "Shift" or "LeftShift" or "RightShift" => IsMac ? "⇧" : "Shift",
                 
                 // Navigation & Editing
