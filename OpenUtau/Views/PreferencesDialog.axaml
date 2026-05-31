@@ -379,7 +379,7 @@
             <ItemsControl ItemsSource="{Binding FilteredShortcuts}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <Grid ColumnDefinitions="*, Auto, 5, Auto" Margin="5">
+                  <Grid ColumnDefinitions="*, Auto, 5, Auto" Margin="5" KeyDown="OnKeyDown" Focusable="True">
                     <TextBlock Grid.Column="0" 
                           Text="{Binding ActionName}" 
                           VerticalAlignment="Center" 

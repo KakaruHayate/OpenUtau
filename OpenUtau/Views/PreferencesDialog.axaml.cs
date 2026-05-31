@@ -18,7 +18,7 @@ namespace OpenUtau.App.Views {
             InitializeComponent();
         }
 
-        protected override void OnKeyDown(KeyEventArgs e) {
+        void OnKeyDown(object sender, KeyEventArgs e) {
             if (DataContext is PreferencesViewModel vm && vm.ActiveShortcut != null) {
                 // If they hit escape without modifiers, cancel listening
                 if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None) {
@@ -34,7 +34,6 @@ namespace OpenUtau.App.Views {
                 e.Handled = true;
                 return;
             }
-            base.OnKeyDown(e);
         }
 
         public void OnShortcutRightClick(object sender, PointerReleasedEventArgs e) {
