@@ -140,6 +140,8 @@ namespace OpenUtau.Core {
 
     public abstract class PitchExpCommand : ExpCommand {
         public PitchExpCommand(UVoicePart part) : base(part) { }
+        public virtual IEnumerable<UNote> AffectedNotes =>
+            Note == null ? Enumerable.Empty<UNote>() : new[] { Note };
         public override ValidateOptions ValidateOptions => new ValidateOptions {
             SkipTiming = true,
             Part = Part,
@@ -162,14 +164,22 @@ namespace OpenUtau.Core {
     }
 
     public class ChangePitchPointShapeCommand : PitchExpCommand {
+        UNote[] notes;
         public PitchPoint Point;
         public PitchPointShape NewShape;
         public PitchPointShape OldShape;
         public ChangePitchPointShapeCommand(UVoicePart part, PitchPoint point, PitchPointShape shape) : base(part) {
+            notes = Array.Empty<UNote>();
             this.Point = point;
             this.NewShape = shape;
             this.OldShape = point.shape;
         }
+        public ChangePitchPointShapeCommand(UVoicePart part, UNote note, PitchPoint point, PitchPointShape shape)
+            : this(part, point, shape) {
+            Note = note;
+            notes = new[] { note };
+        }
+        public override IEnumerable<UNote> AffectedNotes => notes;
         public override string ToString() { return "Change pitch point shape"; }
         public override void Execute() { Point.shape = NewShape; }
         public override void Unexecute() { Point.shape = OldShape; }
@@ -188,6 +198,7 @@ namespace OpenUtau.Core {
                     .ToArray())
                 .ToArray();
         }
+        public override IEnumerable<UNote> AffectedNotes => Notes;
         public override string ToString() { return "Change pitch point shape"; }
         public override void Execute() {
             foreach (var note in Notes) {
@@ -245,14 +256,22 @@ namespace OpenUtau.Core {
     }
 
     public class MovePitchPointCommand : PitchExpCommand {
+        UNote[] notes;
         readonly PitchPoint point;
         readonly float deltaX;
         readonly float deltaY;
         public MovePitchPointCommand(UVoicePart part, PitchPoint point, float deltaX, float deltaY) : base(part) {
+            notes = Array.Empty<UNote>();
             this.point = point;
             this.deltaX = deltaX;
             this.deltaY = deltaY;
         }
+        public MovePitchPointCommand(UVoicePart part, UNote note, PitchPoint point, float deltaX, float deltaY)
+            : this(part, point, deltaX, deltaY) {
+            Note = note;
+            notes = new[] { note };
+        }
+        public override IEnumerable<UNote> AffectedNotes => notes;
         public override string ToString() { return "Move pitch point"; }
         public override void Execute() { point.X += deltaX; point.Y += deltaY; }
         public override void Unexecute() { point.X -= deltaX; point.Y -= deltaY; }
@@ -291,6 +310,7 @@ namespace OpenUtau.Core {
             oldPitch = Notes.Select(note => note.pitch).ToArray();
             newPitch = pitch;
         }
+        public override IEnumerable<UNote> AffectedNotes => Notes;
         public override string ToString() => "Set pitch points";
         public override void Execute(){
             lock (Part) {

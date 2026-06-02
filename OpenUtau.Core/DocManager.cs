@@ -332,8 +332,14 @@ namespace OpenUtau.Core {
             switch (cmd) {
                 case PitchExpCommand pitchCommand when pitchCommand.Part != null:
                     part = pitchCommand.Part;
-                    startTick = GetExpCommandStartTick(pitchCommand);
-                    endTick = GetExpCommandEndTick(pitchCommand);
+                    var pitchNotes = pitchCommand.AffectedNotes.ToArray();
+                    if (pitchNotes.Length > 0) {
+                        startTick = part.position + pitchNotes.Min(note => note.position);
+                        endTick = part.position + pitchNotes.Max(note => note.End);
+                    } else {
+                        startTick = part.position;
+                        endTick = part.End;
+                    }
                     editKind = PreRenderEditKind.Pitch;
                     return endTick > startTick;
                 case VibratoCommand vibratoCommand when vibratoCommand.Notes.Length > 0:
