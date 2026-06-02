@@ -2,12 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using K4os.Hash.xxHash;
-using OpenUtau.Core.Render;
 
 namespace OpenUtau.Core.DiffSinger {
     internal static class DiffSingerVariancePatcher {
         const double InfluenceMarginMs = 250;
         const double FadeMs = 100;
+        const float PitchEpsilon = 0.0001f;
 
         internal static ulong HashPitch(float[] pitch) {
             var bytes = new byte[pitch.Length * sizeof(float)];
@@ -30,15 +30,24 @@ namespace OpenUtau.Core.DiffSinger {
             return (a == null && b == null) || (a != null && b != null && a.Length == b.Length);
         }
 
-        internal static VarianceResult Patch(
-            RenderPhrase phrase,
+        internal static VarianceResult PatchByPitchChange(
             VarianceResult oldResult,
             VarianceResult newResult,
-            IEnumerable<PreRenderPriority> priorities) {
-            if (!CanPatch(oldResult, newResult)) {
+            float[] oldPitch,
+            float[] newPitch) {
+            if (!CanPatch(oldResult, newResult) ||
+                oldPitch.Length != newPitch.Length ||
+                oldPitch.Length != newResult.totalFrames) {
                 return newResult;
             }
-            var weights = BuildWeights(phrase, newResult, priorities);
+            var weights = BuildWeightsForPitchChanges(oldPitch, newPitch, newResult.frameMs);
+            return PatchWithWeights(oldResult, newResult, weights);
+        }
+
+        static VarianceResult PatchWithWeights(
+            VarianceResult oldResult,
+            VarianceResult newResult,
+            float[] weights) {
             if (weights.All(w => w <= 0)) {
                 return oldResult;
             }
@@ -54,26 +63,54 @@ namespace OpenUtau.Core.DiffSinger {
             };
         }
 
-        internal static float[] BuildWeights(
-            RenderPhrase phrase,
-            VarianceResult result,
-            IEnumerable<PreRenderPriority> priorities) {
-            double startMs = phrase.positionMs - result.headFrames * result.frameMs;
-            var ranges = priorities
-                .Where(priority =>
-                    priority.editKind == PreRenderEditKind.Pitch &&
-                    RenderPriority.Overlaps(phrase.position, phrase.end, priority.startTick, priority.endTick))
-                .Select(priority => (
-                    startMs: phrase.timeAxis.TickPosToMsPos(priority.startTick),
-                    endMs: phrase.timeAxis.TickPosToMsPos(priority.endTick)));
-            return BuildWeightsForMsRanges(result.totalFrames, result.frameMs, startMs, ranges);
-        }
-
         internal static float[] BuildWeightsForMsRanges(
             int totalFrames,
             float frameMs,
             double startMs,
             IEnumerable<(double startMs, double endMs)> ranges) {
+            return BuildWeightsForFrameRanges(
+                totalFrames,
+                frameMs,
+                ranges.Select(range => (
+                    startFrame: FrameIndex(range.startMs, startMs, frameMs, totalFrames),
+                    endFrame: FrameIndex(range.endMs, startMs, frameMs, totalFrames))));
+        }
+
+        internal static float[] BuildWeightsForPitchChanges(
+            float[] oldPitch,
+            float[] newPitch,
+            float frameMs) {
+            if (oldPitch.Length != newPitch.Length) {
+                return Array.Empty<float>();
+            }
+            return BuildWeightsForFrameRanges(
+                newPitch.Length,
+                frameMs,
+                PitchChangeRanges(oldPitch, newPitch));
+        }
+
+        static IEnumerable<(int startFrame, int endFrame)> PitchChangeRanges(
+            float[] oldPitch,
+            float[] newPitch) {
+            int start = -1;
+            for (int i = 0; i < newPitch.Length; ++i) {
+                bool changed = Math.Abs(oldPitch[i] - newPitch[i]) > PitchEpsilon;
+                if (changed && start < 0) {
+                    start = i;
+                } else if (!changed && start >= 0) {
+                    yield return (start, i);
+                    start = -1;
+                }
+            }
+            if (start >= 0) {
+                yield return (start, newPitch.Length);
+            }
+        }
+
+        static float[] BuildWeightsForFrameRanges(
+            int totalFrames,
+            float frameMs,
+            IEnumerable<(int startFrame, int endFrame)> ranges) {
             var weights = new float[totalFrames];
             if (totalFrames <= 0) {
                 return weights;
@@ -81,8 +118,8 @@ namespace OpenUtau.Core.DiffSinger {
             int marginFrames = Math.Max(0, (int)Math.Round(InfluenceMarginMs / frameMs));
             int fadeFrames = Math.Max(1, (int)Math.Round(FadeMs / frameMs));
             foreach (var range in ranges) {
-                int coreStart = FrameIndex(range.startMs, startMs, frameMs, totalFrames);
-                int coreEnd = FrameIndex(range.endMs, startMs, frameMs, totalFrames);
+                int coreStart = Math.Clamp(range.startFrame, 0, totalFrames);
+                int coreEnd = Math.Clamp(range.endFrame, 0, totalFrames);
                 if (coreEnd <= coreStart) {
                     coreEnd = Math.Min(totalFrames, coreStart + 1);
                 }

@@ -18,13 +18,10 @@ namespace OpenUtau.Core.Render {
 
         public static List<RenderRealCurveResult> LoadRenderedRealCurves(
             RenderPhrase phrase,
-            IEnumerable<PreRenderPriority>? priorities = null,
             bool allowSessionInitialization = true) {
             if (!CanRefresh(phrase, allowSessionInitialization)) {
                 return new List<RenderRealCurveResult>(0);
             }
-            using var context = RenderContext.WithPreRenderPriorities(
-                priorities ?? Array.Empty<PreRenderPriority>());
             return phrase.renderer.LoadRenderedRealCurves(phrase);
         }
 

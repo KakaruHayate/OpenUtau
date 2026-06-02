@@ -222,27 +222,15 @@ namespace OpenUtau.Core {
         public override string ToString() => $"Focus note {note.lyric} at {note.position}.";
     }
 
-    public enum PreRenderEditKind {
-        Generic,
-        Pitch,
-        VarianceCurve,
-    }
-
     public class PreRenderPriority {
         public readonly UVoicePart part;
         public readonly int startTick;
         public readonly int endTick;
-        public readonly PreRenderEditKind editKind;
 
-        public PreRenderPriority(
-            UVoicePart part,
-            int startTick,
-            int endTick,
-            PreRenderEditKind editKind = PreRenderEditKind.Generic) {
+        public PreRenderPriority(UVoicePart part, int startTick, int endTick) {
             this.part = part;
             this.startTick = startTick;
             this.endTick = endTick;
-            this.editKind = editKind;
         }
     }
 

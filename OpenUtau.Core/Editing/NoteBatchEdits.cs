@@ -750,7 +750,7 @@ namespace OpenUtau.Core.Editing {
                     docManager.ExecuteCmd(new DeletePitchPointCommand(part, note, index));
                     docManager.ExecuteCmd(new DeletePitchPointCommand(part, note, index));
                     var lastPitch = note.pitch.data[^1];
-                    docManager.ExecuteCmd(new MovePitchPointCommand(part, note, lastPitch, 0, -lastPitch.Y));
+                    docManager.ExecuteCmd(new MovePitchPointCommand(part, lastPitch, 0, -lastPitch.Y));
 
                 }
             }

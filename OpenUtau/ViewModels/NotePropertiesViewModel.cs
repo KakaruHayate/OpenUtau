@@ -532,7 +532,7 @@ namespace OpenUtau.App.ViewModels {
                             var newX = firstPoint.X + (pitchPoint.X - firstPoint.X) * scale;
                             var deltaX = newX - pitchPoint.X;
                             if (deltaX != 0) {
-                                DocManager.Inst.ExecuteCmd(new MovePitchPointCommand(Part, note, pitchPoint, deltaX, 0));
+                                DocManager.Inst.ExecuteCmd(new MovePitchPointCommand(Part, pitchPoint, deltaX, 0));
                             }
                         }
                     }
@@ -544,7 +544,7 @@ namespace OpenUtau.App.ViewModels {
                     if (deltaX != 0) {
                         foreach (var note in selectedNotes) {
                             foreach (var pitchPoint in note.pitch.data) {
-                                DocManager.Inst.ExecuteCmd(new MovePitchPointCommand(Part, note, pitchPoint, deltaX, 0));
+                                DocManager.Inst.ExecuteCmd(new MovePitchPointCommand(Part, pitchPoint, deltaX, 0));
                             }
                         }
                     }

@@ -286,9 +286,9 @@ namespace OpenUtau.Core {
         }
 
         PreRenderNotification CreatePreRenderNotification(IEnumerable<UCommand> commands) {
-            var priorityRanges = new Dictionary<UVoicePart, (int startTick, int endTick, PreRenderEditKind editKind)>();
+            var priorityRanges = new Dictionary<UVoicePart, (int startTick, int endTick)>();
             foreach (var cmd in commands) {
-                if (!TryGetPreRenderRange(cmd, out var part, out var cmdStartTick, out var cmdEndTick, out var editKind) ||
+                if (!TryGetPreRenderRange(cmd, out var part, out var cmdStartTick, out var cmdEndTick) ||
                     part == null ||
                     !Project.parts.Contains(part)) {
                     continue;
@@ -296,58 +296,23 @@ namespace OpenUtau.Core {
                 if (priorityRanges.TryGetValue(part, out var range)) {
                     priorityRanges[part] = (
                         Math.Min(range.startTick, cmdStartTick),
-                        Math.Max(range.endTick, cmdEndTick),
-                        MergeEditKind(range.editKind, editKind));
+                        Math.Max(range.endTick, cmdEndTick));
                 } else {
-                    priorityRanges[part] = (cmdStartTick, cmdEndTick, editKind);
+                    priorityRanges[part] = (cmdStartTick, cmdEndTick);
                 }
             }
             if (priorityRanges.Count > 0) {
                 return new PreRenderNotification(priorityRanges.Select(range =>
-                    new PreRenderPriority(range.Key, range.Value.startTick, range.Value.endTick, range.Value.editKind)));
+                    new PreRenderPriority(range.Key, range.Value.startTick, range.Value.endTick)));
             }
             return new PreRenderNotification();
         }
 
-        PreRenderEditKind MergeEditKind(PreRenderEditKind a, PreRenderEditKind b) {
-            if (a == PreRenderEditKind.Pitch || b == PreRenderEditKind.Pitch) {
-                return PreRenderEditKind.Pitch;
-            }
-            if (a == PreRenderEditKind.VarianceCurve || b == PreRenderEditKind.VarianceCurve) {
-                return PreRenderEditKind.VarianceCurve;
-            }
-            return PreRenderEditKind.Generic;
-        }
-
-        bool TryGetPreRenderRange(
-            UCommand cmd,
-            out UVoicePart? part,
-            out int startTick,
-            out int endTick,
-            out PreRenderEditKind editKind) {
+        bool TryGetPreRenderRange(UCommand cmd, out UVoicePart? part, out int startTick, out int endTick) {
             part = null;
             startTick = 0;
             endTick = 0;
-            editKind = PreRenderEditKind.Generic;
             switch (cmd) {
-                case PitchExpCommand pitchCommand when pitchCommand.Part != null:
-                    part = pitchCommand.Part;
-                    var pitchNotes = pitchCommand.AffectedNotes.ToArray();
-                    if (pitchNotes.Length > 0) {
-                        startTick = part.position + pitchNotes.Min(note => note.position);
-                        endTick = part.position + pitchNotes.Max(note => note.End);
-                    } else {
-                        startTick = part.position;
-                        endTick = part.End;
-                    }
-                    editKind = PreRenderEditKind.Pitch;
-                    return endTick > startTick;
-                case VibratoCommand vibratoCommand when vibratoCommand.Notes.Length > 0:
-                    part = vibratoCommand.Part;
-                    startTick = part.position + vibratoCommand.Notes.Min(note => note.position);
-                    endTick = part.position + vibratoCommand.Notes.Max(note => note.End);
-                    editKind = PreRenderEditKind.Pitch;
-                    return endTick > startTick;
                 case NoteCommand noteCommand when noteCommand.Notes.Length > 0:
                     part = noteCommand.Part;
                     startTick = part.position + noteCommand.Notes.Min(note => note.position);
@@ -357,31 +322,16 @@ namespace OpenUtau.Core {
                     part = curveCommand.Part;
                     startTick = part.position + curveCommand.StartTick;
                     endTick = part.position + curveCommand.EndTick;
-                    editKind = GetCurveEditKind(curveCommand.Abbr);
                     return endTick > startTick;
                 case MergedSetCurveCommand curveCommand:
                     part = curveCommand.Part;
                     startTick = part.position + curveCommand.StartTick;
                     endTick = part.position + curveCommand.EndTick;
-                    editKind = curveCommand.SetReal ? PreRenderEditKind.Generic : GetCurveEditKind(curveCommand.Abbr);
-                    return endTick > startTick;
-                case PasteCurveCommand curveCommand:
-                    part = curveCommand.Part;
-                    startTick = part.position + curveCommand.StartTick;
-                    endTick = part.position + curveCommand.EndTick;
-                    editKind = GetCurveEditKind(curveCommand.Abbr);
-                    return endTick > startTick;
-                case ClearCurveCommand curveCommand:
-                    part = curveCommand.Part;
-                    startTick = part.position + curveCommand.StartTick;
-                    endTick = part.position + curveCommand.EndTick;
-                    editKind = GetCurveEditKind(curveCommand.Abbr);
                     return endTick > startTick;
                 case ExpCommand expCommand when expCommand.Note != null:
                     part = expCommand.Part;
                     startTick = part.position + expCommand.Note.position;
                     endTick = part.position + expCommand.Note.End;
-                    editKind = GetExpressionEditKind(expCommand.Key);
                     return endTick > startTick;
                 case ExpCommand expCommand:
                     part = expCommand.Part;
@@ -401,42 +351,6 @@ namespace OpenUtau.Core {
                         return endTick > startTick;
                     }
                     return false;
-            }
-        }
-
-        int GetExpCommandStartTick(ExpCommand command) {
-            if (command.Note != null) {
-                return command.Part.position + command.Note.position;
-            }
-            return command.Part.position;
-        }
-
-        int GetExpCommandEndTick(ExpCommand command) {
-            if (command.Note != null) {
-                return command.Part.position + command.Note.End;
-            }
-            return command.Part.End;
-        }
-
-        PreRenderEditKind GetExpressionEditKind(string? abbr) {
-            if (abbr == Format.Ustx.SHFT) {
-                return PreRenderEditKind.Pitch;
-            }
-            return PreRenderEditKind.Generic;
-        }
-
-        PreRenderEditKind GetCurveEditKind(string? abbr) {
-            switch (abbr) {
-                case Format.Ustx.PITD:
-                case Format.Ustx.SHFC:
-                    return PreRenderEditKind.Pitch;
-                case OpenUtau.Core.DiffSinger.DiffSingerUtils.ENE:
-                case Format.Ustx.BREC:
-                case Format.Ustx.VOIC:
-                case Format.Ustx.TENC:
-                    return PreRenderEditKind.VarianceCurve;
-                default:
-                    return PreRenderEditKind.Generic;
             }
         }
 

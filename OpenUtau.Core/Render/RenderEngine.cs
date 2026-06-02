@@ -258,8 +258,6 @@ namespace OpenUtau.Core.Render {
                 var phrase = tuple.phrase;
                 var source = tuple.source;
                 var request = tuple.request;
-                using var context = RenderContext.WithPreRenderPriorities(
-                    IsDiffSinger(phrase) ? GetDiffSingerPriorityRanges(request.part) : Array.Empty<PreRenderPriority>());
                 var task = phrase.renderer.Render(phrase, progress, request.trackNo, cancellation, true);
                 task.Wait();
                 if (cancellation.IsCancellationRequested) {
@@ -360,7 +358,7 @@ namespace OpenUtau.Core.Render {
             }
             List<RenderRealCurveResult> results;
             try {
-                results = RealCurveRefresh.LoadRenderedRealCurves(phrase, GetDiffSingerPriorityRanges(part));
+                results = RealCurveRefresh.LoadRenderedRealCurves(phrase);
             } catch (Exception e) {
                 Log.Debug(e, "Failed to refresh DiffSinger real curves.");
                 return;

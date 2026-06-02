@@ -36,6 +36,20 @@ namespace OpenUtau.Core.DiffSinger {
         }
 
         [Fact]
+        public void BuildWeightsForPitchChangesKeepsUnchangedEdgesAtZero() {
+            var oldPitch = Enumerable.Repeat(1f, 100).ToArray();
+            var newPitch = Enumerable.Repeat(1f, 100).ToArray();
+            newPitch[50] = 2f;
+
+            var weights = DiffSingerVariancePatcher.BuildWeightsForPitchChanges(
+                oldPitch, newPitch, frameMs: 10);
+
+            Assert.Equal(0, weights[0]);
+            Assert.Equal(0, weights[99]);
+            Assert.Contains(weights, weight => weight >= 1);
+        }
+
+        [Fact]
         public void PatchArrayBlendsOldAndNewByWeight() {
             var oldValues = Enumerable.Repeat(0f, 5).ToArray();
             var newValues = Enumerable.Repeat(10f, 5).ToArray();
@@ -44,6 +58,30 @@ namespace OpenUtau.Core.DiffSinger {
             var result = DiffSingerVariancePatcher.PatchArray(oldValues, newValues, weights)!;
 
             Assert.Equal(new[] { 0f, 2.5f, 5f, 7.5f, 10f }, result);
+        }
+
+        [Fact]
+        public void PatchByPitchChangeKeepsUnchangedFramesFromOldResult() {
+            var oldPitch = Enumerable.Repeat(1f, 100).ToArray();
+            var newPitch = Enumerable.Repeat(1f, 100).ToArray();
+            newPitch[50] = 2f;
+            var oldResult = new VarianceResult {
+                energy = Enumerable.Repeat(0f, 100).ToArray(),
+                frameMs = 10,
+                totalFrames = 100,
+            };
+            var newResult = new VarianceResult {
+                energy = Enumerable.Repeat(10f, 100).ToArray(),
+                frameMs = 10,
+                totalFrames = 100,
+            };
+
+            var result = DiffSingerVariancePatcher.PatchByPitchChange(
+                oldResult, newResult, oldPitch, newPitch);
+
+            Assert.Equal(0, result.energy![0]);
+            Assert.Equal(10, result.energy[50]);
+            Assert.Equal(0, result.energy[99]);
         }
     }
 }

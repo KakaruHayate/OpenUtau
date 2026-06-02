@@ -643,7 +643,7 @@ namespace OpenUtau.App.Views {
                 return;
             }
             if (notesVm.Part != null) {
-                DocManager.Inst.ExecuteCmd(new MovePitchPointCommand(notesVm.Part, note, pitchPoint, (float)deltaX, (float)deltaY));
+                DocManager.Inst.ExecuteCmd(new MovePitchPointCommand(notesVm.Part, pitchPoint, (float)deltaX, (float)deltaY));
             }
             valueTip.UpdateValueTip($"{pitchPoint.X:0.0}ms, {pitchPoint.Y * 10:0}cent");
         }

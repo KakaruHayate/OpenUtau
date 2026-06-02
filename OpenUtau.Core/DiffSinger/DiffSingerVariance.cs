@@ -269,11 +269,6 @@ namespace OpenUtau.Core.DiffSinger{
                 phrase.AddCacheFile(acceptedVarianceCache?.Filename);
                 return acceptedVariance.Result;
             }
-            var pitchPriorities = RenderContext.PreRenderPriorities
-                .Where(priority =>
-                    priority.editKind == PreRenderEditKind.Pitch &&
-                    RenderPriority.Overlaps(phrase.position, phrase.end, priority.startTick, priority.endTick))
-                .ToArray();
             var varianceCache = Preferences.Default.DiffSingerTensorCache
                 ? new DiffSingerCache(varianceHash, varianceInputs)
                 : null;
@@ -321,11 +316,11 @@ namespace OpenUtau.Core.DiffSinger{
                 return fullResult;
             }
             var result = fullResult;
-            if (acceptedVariance != null && pitchPriorities.Length > 0) {
-                result = DiffSingerVariancePatcher.Patch(
-                    phrase, acceptedVariance.Result, fullResult, pitchPriorities);
+            if (acceptedVariance?.Pitch != null) {
+                result = DiffSingerVariancePatcher.PatchByPitchChange(
+                    acceptedVariance.Result, fullResult, acceptedVariance.Pitch, pitch);
             }
-            SaveAcceptedVariance(acceptedVarianceCache, result, pitchHash);
+            SaveAcceptedVariance(acceptedVarianceCache, result, pitchHash, pitch);
             phrase.AddCacheFile(acceptedVarianceCache.Filename);
             return result;
         }
@@ -339,6 +334,7 @@ namespace OpenUtau.Core.DiffSinger{
         class AcceptedVariance {
             public VarianceResult Result;
             public ulong PitchHash;
+            public float[]? Pitch;
         }
 
         AcceptedVariance? LoadAcceptedVariance(
@@ -364,6 +360,7 @@ namespace OpenUtau.Core.DiffSinger{
                 }
                 return new AcceptedVariance {
                     PitchHash = unchecked((ulong)GetRequiredLong(outputs, "pitch_hash")),
+                    Pitch = GetOptionalFloatArray(outputs, "pitch"),
                     Result = new VarianceResult {
                         energy = GetOptionalFloatArray(outputs, "energy_pred"),
                         breathiness = GetOptionalFloatArray(outputs, "breathiness_pred"),
@@ -382,7 +379,7 @@ namespace OpenUtau.Core.DiffSinger{
             }
         }
 
-        void SaveAcceptedVariance(DiffSingerCache cache, VarianceResult result, ulong pitchHash) {
+        void SaveAcceptedVariance(DiffSingerCache cache, VarianceResult result, ulong pitchHash, float[] pitch) {
             var outputs = new List<NamedOnnxValue> {
                 NamedOnnxValue.CreateFromTensor("pitch_hash",
                     new DenseTensor<long>(new[] { unchecked((long)pitchHash) }, new[] { 1 })),
@@ -395,6 +392,7 @@ namespace OpenUtau.Core.DiffSinger{
                 NamedOnnxValue.CreateFromTensor("total_frames",
                     new DenseTensor<long>(new[] { (long)result.totalFrames }, new[] { 1 })),
             };
+            AddOptionalFloatArray(outputs, "pitch", pitch);
             AddOptionalFloatArray(outputs, "energy_pred", result.energy);
             AddOptionalFloatArray(outputs, "breathiness_pred", result.breathiness);
             AddOptionalFloatArray(outputs, "voicing_pred", result.voicing);

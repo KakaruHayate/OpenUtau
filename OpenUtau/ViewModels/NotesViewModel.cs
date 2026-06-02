@@ -5,7 +5,6 @@ using System.Linq;
 using System.Numerics;
 using System.Reactive;
 using System.Reactive.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -15,7 +14,6 @@ using DynamicData;
 using DynamicData.Binding;
 using OpenUtau.App.Views;
 using OpenUtau.Core;
-using OpenUtau.Core.Render;
 using OpenUtau.Core.Ustx;
 using OpenUtau.Core.Util;
 using OpenUtau.ViewModels;
@@ -106,8 +104,6 @@ namespace OpenUtau.App.ViewModels {
 
         // See the comments on TracksViewModel.playPosXToTickOffset
         private double playPosXToTickOffset => Bounds.Width != 0 ? ViewportTicks / Bounds.Width : 0;
-        private int realCurveRefreshVersion;
-
         private readonly ObservableAsPropertyHelper<double> viewportTicks;
         private readonly ObservableAsPropertyHelper<double> viewportTracks;
         private readonly ObservableAsPropertyHelper<double> smallChangeX;
@@ -1104,8 +1100,6 @@ namespace OpenUtau.App.ViewModels {
                 } else if (cmd is PhonemizedNotification) {
                     OnPartModified();
                     MessageBus.Current.SendMessage(new NotesRefreshEvent());
-                } else if (notif is PreRenderNotification preRender) {
-                    ScheduleDiffSingerRealCurveRefresh(preRender.priorities);
                 } else if (notif is RealCurvesRenderedNotification && notif.part == Part) {
                     MessageBus.Current.SendMessage(new NotesRefreshEvent());
                 } else if ((notif is PhraseRenderedNotification || notif is PartRenderedNotification) && notif.part == Part) {
@@ -1169,87 +1163,6 @@ namespace OpenUtau.App.ViewModels {
                     }
                 }
                 PrimaryKeyNotSupported = !IsExpSupported(PrimaryKey);
-            }
-        }
-
-        private void ScheduleDiffSingerRealCurveRefresh(IEnumerable<PreRenderPriority> priorities) {
-            if (Part == null) {
-                return;
-            }
-            var part = Part;
-            var project = Project;
-            var relevantPriorities = priorities
-                .Where(priority =>
-                    ReferenceEquals(priority.part, part) &&
-                    (priority.editKind == PreRenderEditKind.Pitch ||
-                    priority.editKind == PreRenderEditKind.VarianceCurve))
-                .ToArray();
-            if (relevantPriorities.Length == 0) {
-                return;
-            }
-            var phrases = part.renderPhrases
-                .Where(phrase =>
-                    RealCurveRefresh.CanRefresh(phrase, allowSessionInitialization: false) &&
-                    relevantPriorities.Any(priority =>
-                        phrase.end > priority.startTick && phrase.position < priority.endTick))
-                .ToArray();
-            if (phrases.Length == 0) {
-                return;
-            }
-            int version = Interlocked.Increment(ref realCurveRefreshVersion);
-            _ = Task.Run(() => RefreshDiffSingerRealCurves(project, part, phrases, relevantPriorities, version));
-        }
-
-        private void RefreshDiffSingerRealCurves(
-            UProject project,
-            UVoicePart part,
-            RenderPhrase[] phrases,
-            PreRenderPriority[] priorities,
-            int version) {
-            try {
-                var phraseResults = new List<(RenderPhrase phrase, List<RenderRealCurveResult> results)>();
-                foreach (var phrase in phrases) {
-                    if (Volatile.Read(ref realCurveRefreshVersion) != version) {
-                        return;
-                    }
-                    try {
-                        var results = RealCurveRefresh.LoadRenderedRealCurves(
-                            phrase, priorities, allowSessionInitialization: false);
-                        if (results.Count > 0) {
-                            phraseResults.Add((phrase, results));
-                        }
-                    } catch (Exception e) {
-                        Log.Debug(e, "Failed to refresh DiffSinger real curves.");
-                    }
-                }
-                if (phraseResults.Count == 0 ||
-                    Volatile.Read(ref realCurveRefreshVersion) != version) {
-                    return;
-                }
-                void Apply() {
-                    if (Volatile.Read(ref realCurveRefreshVersion) != version ||
-                        !ReferenceEquals(Project, project) ||
-                        !ReferenceEquals(Part, part)) {
-                        return;
-                    }
-                    bool changed = false;
-                    lock (part) {
-                        foreach (var phraseResult in phraseResults) {
-                            changed |= RealCurveRefresh.ApplyRealCurveResults(
-                                project, part, phraseResult.phrase, phraseResult.results);
-                        }
-                    }
-                    if (changed) {
-                        MessageBus.Current.SendMessage(new NotesRefreshEvent());
-                    }
-                }
-                if (DocManager.Inst.PostOnUIThread != null) {
-                    DocManager.Inst.PostOnUIThread(Apply);
-                } else {
-                    Apply();
-                }
-            } catch (Exception e) {
-                Log.Debug(e, "Failed to refresh DiffSinger real curves.");
             }
         }
 
