@@ -317,6 +317,7 @@ namespace OpenUtau.Core {
         readonly int lastY;
         int[] oldXs;
         int[] oldYs;
+        public string Abbr => abbr;
         public int StartTick => Math.Min(x, lastX);
         public int EndTick => Math.Max(x, lastX) + 1;
         public override ValidateOptions ValidateOptions
@@ -386,6 +387,8 @@ namespace OpenUtau.Core {
         readonly int[] newXs;
         readonly int[] newYs;
         readonly bool setReal;
+        public string Abbr => abbr;
+        public bool SetReal => setReal;
         public int StartTick => (oldXs ?? Array.Empty<int>())
             .Concat(newXs ?? Array.Empty<int>())
             .DefaultIfEmpty(0)
@@ -446,6 +449,9 @@ namespace OpenUtau.Core {
         readonly int[] ys;
         int[]? oldXs;
         int[]? oldYs;
+        public string Abbr => abbr;
+        public int StartTick => xs.DefaultIfEmpty(0).Min();
+        public int EndTick => xs.DefaultIfEmpty(Part.Duration).Max() + 1;
         public PasteCurveCommand(UProject project, UVoicePart part, string abbr, IEnumerable<int> xs, IEnumerable<int> ys) : base(part) {
             this.project = project;
             this.abbr = abbr;
@@ -507,6 +513,9 @@ namespace OpenUtau.Core {
         readonly string abbr;
         readonly int[] oldXs;
         readonly int[] oldYs;
+        public string Abbr => abbr;
+        public int StartTick => 0;
+        public int EndTick => Part.Duration;
         public ClearCurveCommand(UVoicePart part, string abbr) : base(part) {
             this.abbr = abbr;
             var curve = Part.curves.FirstOrDefault(curve => curve.abbr == abbr);

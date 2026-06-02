@@ -24,6 +24,7 @@ namespace OpenUtau.Core.DiffSinger{
         public int totalFrames;
     }
     public class DsVariance : IDisposable{
+        const ulong AcceptedVarianceCacheSalt = 0x9E3779B97F4A7C15UL;
         string rootPath;
         DsConfig dsConfig;
         Dictionary<string, int> languageIds = new Dictionary<string, int>();
@@ -257,6 +258,22 @@ namespace OpenUtau.Core.DiffSinger{
                 varianceInputs.Add(NamedOnnxValue.CreateFromTensor("spk_embed", spkEmbedTensor));
             }
             Onnx.VerifyInputNames(varianceModel, varianceInputs);
+            var acceptedVarianceCache = Preferences.Default.DiffSingerTensorCache
+                ? new DiffSingerCache(varianceHash ^ AcceptedVarianceCacheSalt, AcceptedVarianceCacheInputs(varianceInputs))
+                : null;
+            ulong pitchHash = DiffSingerVariancePatcher.HashPitch(pitch);
+            var acceptedVariance = acceptedVarianceCache == null
+                ? null
+                : LoadAcceptedVariance(acceptedVarianceCache, frameMs, headFrames, tailFrames, totalFrames);
+            if (acceptedVariance != null && acceptedVariance.PitchHash == pitchHash) {
+                phrase.AddCacheFile(acceptedVarianceCache?.Filename);
+                return acceptedVariance.Result;
+            }
+            var pitchPriorities = RenderContext.PreRenderPriorities
+                .Where(priority =>
+                    priority.editKind == PreRenderEditKind.Pitch &&
+                    RenderPriority.Overlaps(phrase.position, phrase.end, priority.startTick, priority.endTick))
+                .ToArray();
             var varianceCache = Preferences.Default.DiffSingerTensorCache
                 ? new DiffSingerCache(varianceHash, varianceInputs)
                 : null;
@@ -290,7 +307,7 @@ namespace OpenUtau.Core.DiffSinger{
                     .First()
                     .AsTensor<float>()
                 : null;
-            return new VarianceResult{
+            var fullResult = new VarianceResult{
                 energy = energy_pred?.ToArray(),
                 breathiness = breathiness_pred?.ToArray(),
                 voicing = voicing_pred?.ToArray(),
@@ -300,6 +317,108 @@ namespace OpenUtau.Core.DiffSinger{
                 tailFrames = tailFrames,
                 totalFrames = totalFrames,
             };
+            if (acceptedVarianceCache == null) {
+                return fullResult;
+            }
+            var result = fullResult;
+            if (acceptedVariance != null && pitchPriorities.Length > 0) {
+                result = DiffSingerVariancePatcher.Patch(
+                    phrase, acceptedVariance.Result, fullResult, pitchPriorities);
+            }
+            SaveAcceptedVariance(acceptedVarianceCache, result, pitchHash);
+            phrase.AddCacheFile(acceptedVarianceCache.Filename);
+            return result;
+        }
+
+        ICollection<NamedOnnxValue> AcceptedVarianceCacheInputs(ICollection<NamedOnnxValue> varianceInputs) {
+            return varianceInputs
+                .Where(input => input.Name != "pitch" && input.Name != "retake")
+                .ToArray();
+        }
+
+        class AcceptedVariance {
+            public VarianceResult Result;
+            public ulong PitchHash;
+        }
+
+        AcceptedVariance? LoadAcceptedVariance(
+            DiffSingerCache cache,
+            float expectedFrameMs,
+            int expectedHeadFrames,
+            int expectedTailFrames,
+            int expectedTotalFrames) {
+            var outputs = cache.Load();
+            if (outputs == null) {
+                return null;
+            }
+            try {
+                var frameMsValue = GetRequiredFloat(outputs, "frame_ms");
+                var headFramesValue = (int)GetRequiredLong(outputs, "head_frames");
+                var tailFramesValue = (int)GetRequiredLong(outputs, "tail_frames");
+                var totalFramesValue = (int)GetRequiredLong(outputs, "total_frames");
+                if (Math.Abs(frameMsValue - expectedFrameMs) > 0.0001f ||
+                    headFramesValue != expectedHeadFrames ||
+                    tailFramesValue != expectedTailFrames ||
+                    totalFramesValue != expectedTotalFrames) {
+                    return null;
+                }
+                return new AcceptedVariance {
+                    PitchHash = unchecked((ulong)GetRequiredLong(outputs, "pitch_hash")),
+                    Result = new VarianceResult {
+                        energy = GetOptionalFloatArray(outputs, "energy_pred"),
+                        breathiness = GetOptionalFloatArray(outputs, "breathiness_pred"),
+                        voicing = GetOptionalFloatArray(outputs, "voicing_pred"),
+                        tension = GetOptionalFloatArray(outputs, "tension_pred"),
+                        frameMs = frameMsValue,
+                        headFrames = headFramesValue,
+                        tailFrames = tailFramesValue,
+                        totalFrames = totalFramesValue,
+                    }
+                };
+            } catch (Exception e) {
+                Log.Error(e, "Failed to load accepted variance cache.");
+                cache.Delete();
+                return null;
+            }
+        }
+
+        void SaveAcceptedVariance(DiffSingerCache cache, VarianceResult result, ulong pitchHash) {
+            var outputs = new List<NamedOnnxValue> {
+                NamedOnnxValue.CreateFromTensor("pitch_hash",
+                    new DenseTensor<long>(new[] { unchecked((long)pitchHash) }, new[] { 1 })),
+                NamedOnnxValue.CreateFromTensor("frame_ms",
+                    new DenseTensor<float>(new[] { result.frameMs }, new[] { 1 })),
+                NamedOnnxValue.CreateFromTensor("head_frames",
+                    new DenseTensor<long>(new[] { (long)result.headFrames }, new[] { 1 })),
+                NamedOnnxValue.CreateFromTensor("tail_frames",
+                    new DenseTensor<long>(new[] { (long)result.tailFrames }, new[] { 1 })),
+                NamedOnnxValue.CreateFromTensor("total_frames",
+                    new DenseTensor<long>(new[] { (long)result.totalFrames }, new[] { 1 })),
+            };
+            AddOptionalFloatArray(outputs, "energy_pred", result.energy);
+            AddOptionalFloatArray(outputs, "breathiness_pred", result.breathiness);
+            AddOptionalFloatArray(outputs, "voicing_pred", result.voicing);
+            AddOptionalFloatArray(outputs, "tension_pred", result.tension);
+            cache.Save(outputs);
+        }
+
+        static void AddOptionalFloatArray(List<NamedOnnxValue> outputs, string name, float[]? values) {
+            if (values != null) {
+                outputs.Add(NamedOnnxValue.CreateFromTensor(
+                    name, new DenseTensor<float>(values, new[] { values.Length })));
+            }
+        }
+
+        static float[]? GetOptionalFloatArray(ICollection<NamedOnnxValue> outputs, string name) {
+            return outputs.FirstOrDefault(output => output.Name == name)?.AsTensor<float>().ToArray();
+        }
+
+        static float GetRequiredFloat(ICollection<NamedOnnxValue> outputs, string name) {
+            return outputs.First(output => output.Name == name).AsTensor<float>().First();
+        }
+
+        static long GetRequiredLong(ICollection<NamedOnnxValue> outputs, string name) {
+            return outputs.First(output => output.Name == name).AsTensor<long>().First();
         }
 
         private bool disposedValue;

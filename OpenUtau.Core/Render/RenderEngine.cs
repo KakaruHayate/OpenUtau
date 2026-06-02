@@ -258,6 +258,8 @@ namespace OpenUtau.Core.Render {
                 var phrase = tuple.phrase;
                 var source = tuple.source;
                 var request = tuple.request;
+                using var context = RenderContext.WithPreRenderPriorities(
+                    IsDiffSinger(phrase) ? GetDiffSingerPriorityRanges(request.part) : Array.Empty<PreRenderPriority>());
                 var task = phrase.renderer.Render(phrase, progress, request.trackNo, cancellation, true);
                 task.Wait();
                 if (cancellation.IsCancellationRequested) {
@@ -266,6 +268,7 @@ namespace OpenUtau.Core.Render {
                 source.SetSamples(task.Result.samples);
                 bool partReady = request.sources.All(s => s.HasSamples);
                 if (IsDiffSinger(phrase)) {
+                    RefreshRealCurves(phrase, request.part);
                     request.part.SetMix(request.mix);
                     DocManager.Inst.ExecuteCmd(new PhraseRenderedNotification(request.part));
                 }
@@ -351,12 +354,45 @@ namespace OpenUtau.Core.Render {
             return phrase.renderer.SingerType == USingerType.DiffSinger;
         }
 
+        private void RefreshRealCurves(RenderPhrase phrase, UVoicePart part) {
+            if (!RealCurveRefresh.CanRefresh(phrase)) {
+                return;
+            }
+            List<RenderRealCurveResult> results;
+            try {
+                results = RealCurveRefresh.LoadRenderedRealCurves(phrase, GetDiffSingerPriorityRanges(part));
+            } catch (Exception e) {
+                Log.Debug(e, "Failed to refresh DiffSinger real curves.");
+                return;
+            }
+            if (results.Count == 0) {
+                return;
+            }
+            void Apply() {
+                lock (part) {
+                    RealCurveRefresh.ApplyRealCurveResults(project, part, phrase, results);
+                }
+                DocManager.Inst.ExecuteCmd(new RealCurvesRenderedNotification(part));
+            }
+            if (DocManager.Inst.PostOnUIThread != null) {
+                DocManager.Inst.PostOnUIThread(Apply);
+            } else {
+                Apply();
+            }
+        }
+
         private PreRenderPriority[] GetDiffSingerPriorityRanges() {
             return priorityRanges
                 .Where(priority =>
                     priority.part.trackNo >= 0 &&
                     priority.part.trackNo < project.tracks.Count &&
                     project.tracks[priority.part.trackNo].RendererSettings.Renderer?.SingerType == USingerType.DiffSinger)
+                .ToArray();
+        }
+
+        private PreRenderPriority[] GetDiffSingerPriorityRanges(UVoicePart part) {
+            return GetDiffSingerPriorityRanges()
+                .Where(priority => ReferenceEquals(priority.part, part))
                 .ToArray();
         }
 

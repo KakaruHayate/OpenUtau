@@ -222,15 +222,27 @@ namespace OpenUtau.Core {
         public override string ToString() => $"Focus note {note.lyric} at {note.position}.";
     }
 
+    public enum PreRenderEditKind {
+        Generic,
+        Pitch,
+        VarianceCurve,
+    }
+
     public class PreRenderPriority {
         public readonly UVoicePart part;
         public readonly int startTick;
         public readonly int endTick;
+        public readonly PreRenderEditKind editKind;
 
-        public PreRenderPriority(UVoicePart part, int startTick, int endTick) {
+        public PreRenderPriority(
+            UVoicePart part,
+            int startTick,
+            int endTick,
+            PreRenderEditKind editKind = PreRenderEditKind.Generic) {
             this.part = part;
             this.startTick = startTick;
             this.endTick = endTick;
+            this.editKind = editKind;
         }
     }
 
@@ -264,6 +276,13 @@ namespace OpenUtau.Core {
             this.part = part;
         }
         public override string ToString() => "Phrase rendered.";
+    }
+
+    public class RealCurvesRenderedNotification : UNotification {
+        public RealCurvesRenderedNotification(UVoicePart part) {
+            this.part = part;
+        }
+        public override string ToString() => "Real curves rendered.";
     }
 
     public class PartRenderedNotification : UNotification {
