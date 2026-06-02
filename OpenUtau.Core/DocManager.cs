@@ -278,10 +278,80 @@ namespace OpenUtau.Core {
             if (undoGroup.DeferValidate) {
                 Project.ValidateFull();
             }
+            var preRenderNotification = CreatePreRenderNotification(undoGroup.Commands);
             undoGroup.Merge();
             undoGroup = null;
             Log.Information("undoGroup ended");
-            ExecuteCmd(new PreRenderNotification());
+            ExecuteCmd(preRenderNotification);
+        }
+
+        PreRenderNotification CreatePreRenderNotification(IEnumerable<UCommand> commands) {
+            var priorityRanges = new Dictionary<UVoicePart, (int startTick, int endTick)>();
+            foreach (var cmd in commands) {
+                if (!TryGetPreRenderRange(cmd, out var part, out var cmdStartTick, out var cmdEndTick) ||
+                    part == null ||
+                    !Project.parts.Contains(part)) {
+                    continue;
+                }
+                if (priorityRanges.TryGetValue(part, out var range)) {
+                    priorityRanges[part] = (
+                        Math.Min(range.startTick, cmdStartTick),
+                        Math.Max(range.endTick, cmdEndTick));
+                } else {
+                    priorityRanges[part] = (cmdStartTick, cmdEndTick);
+                }
+            }
+            if (priorityRanges.Count > 0) {
+                return new PreRenderNotification(priorityRanges.Select(range =>
+                    new PreRenderPriority(range.Key, range.Value.startTick, range.Value.endTick)));
+            }
+            return new PreRenderNotification();
+        }
+
+        bool TryGetPreRenderRange(UCommand cmd, out UVoicePart? part, out int startTick, out int endTick) {
+            part = null;
+            startTick = 0;
+            endTick = 0;
+            switch (cmd) {
+                case NoteCommand noteCommand when noteCommand.Notes.Length > 0:
+                    part = noteCommand.Part;
+                    startTick = part.position + noteCommand.Notes.Min(note => note.position);
+                    endTick = part.position + noteCommand.Notes.Max(note => note.End);
+                    return endTick > startTick;
+                case SetCurveCommand curveCommand:
+                    part = curveCommand.Part;
+                    startTick = part.position + curveCommand.StartTick;
+                    endTick = part.position + curveCommand.EndTick;
+                    return endTick > startTick;
+                case MergedSetCurveCommand curveCommand:
+                    part = curveCommand.Part;
+                    startTick = part.position + curveCommand.StartTick;
+                    endTick = part.position + curveCommand.EndTick;
+                    return endTick > startTick;
+                case ExpCommand expCommand when expCommand.Note != null:
+                    part = expCommand.Part;
+                    startTick = part.position + expCommand.Note.position;
+                    endTick = part.position + expCommand.Note.End;
+                    return endTick > startTick;
+                case ExpCommand expCommand:
+                    part = expCommand.Part;
+                    startTick = part.position;
+                    endTick = part.End;
+                    return endTick > startTick;
+                case PartCommand partCommand when partCommand.part is UVoicePart voicePart:
+                    part = voicePart;
+                    startTick = part.position;
+                    endTick = part.End;
+                    return endTick > startTick;
+                default:
+                    if (cmd.ValidateOptions.Part is UVoicePart validatePart) {
+                        part = validatePart;
+                        startTick = part.position;
+                        endTick = part.End;
+                        return endTick > startTick;
+                    }
+                    return false;
+            }
         }
 
         public void RollBackUndoGroup() {
@@ -314,7 +384,7 @@ namespace OpenUtau.Core {
                 Publish(cmd, true);
             }
             redoQueue.AddToBack(group);
-            ExecuteCmd(new PreRenderNotification());
+            ExecuteCmd(CreatePreRenderNotification(group.Commands));
         }
 
         public void Redo() {
@@ -331,7 +401,7 @@ namespace OpenUtau.Core {
                 Publish(cmd);
             }
             undoQueue.AddToBack(group);
-            ExecuteCmd(new PreRenderNotification());
+            ExecuteCmd(CreatePreRenderNotification(group.Commands));
         }
 
         public bool GetUndoState(out string? key) {

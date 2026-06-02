@@ -47,12 +47,30 @@ namespace OpenUtau.Core.Render {
         readonly int startTick;
         readonly int endTick;
         readonly int trackNo;
+        readonly PreRenderPriority[] priorityRanges;
 
-        public RenderEngine(UProject project, int startTick = 0, int endTick = -1, int trackNo = -1) {
+        public RenderEngine(
+            UProject project,
+            int startTick = 0,
+            int endTick = -1,
+            int trackNo = -1,
+            UVoicePart? priorityPart = null,
+            int priorityStartTick = -1,
+            int priorityEndTick = -1,
+            IEnumerable<PreRenderPriority>? priorityRanges = null) {
             this.project = project;
             this.startTick = startTick;
             this.endTick = endTick;
             this.trackNo = trackNo;
+            if (priorityRanges != null) {
+                this.priorityRanges = priorityRanges
+                    .Where(priority => priority.endTick > priority.startTick)
+                    .ToArray();
+            } else if (priorityPart != null && priorityEndTick > priorityStartTick) {
+                this.priorityRanges = new[] { new PreRenderPriority(priorityPart, priorityStartTick, priorityEndTick) };
+            } else {
+                this.priorityRanges = Array.Empty<PreRenderPriority>();
+            }
         }
 
         // for playback or export
@@ -220,33 +238,126 @@ namespace OpenUtau.Core.Render {
             }
             var tuples = requests
                 .SelectMany(req => req.phrases
-                    .Zip(req.sources, (phrase, source) => Tuple.Create(phrase, source, req)))
+                    .Zip(req.sources, (phrase, source) => (phrase, source, request: req)))
                 .ToArray();
-            if (playing) {
-                var orderedTuples = tuples
-                    .Where(tuple => tuple.Item1.end > startTick)
-                    .OrderBy(tuple => tuple.Item1.end)
-                    .Concat(tuples.Where(tuple => tuple.Item1.end <= startTick))
-                    .ToArray();
-                tuples = orderedTuples;
+            if (tuples.Length == 0) {
+                return;
+            }
+            if (tuples.Any(tuple => IsDiffSinger(tuple.phrase))) {
+                if (playing) {
+                    tuples = OrderForPlayback(tuples);
+                } else if (GetDiffSingerPriorityRanges().Length > 0) {
+                    tuples = OrderForPreRender(tuples);
+                }
             }
             var progress = new Progress(tuples.Sum(t => t.Item1.phones.Length));
             foreach (var tuple in tuples) {
-                var phrase = tuple.Item1;
-                var source = tuple.Item2;
-                var request = tuple.Item3;
+                if (cancellation.IsCancellationRequested) {
+                    break;
+                }
+                var phrase = tuple.phrase;
+                var source = tuple.source;
+                var request = tuple.request;
                 var task = phrase.renderer.Render(phrase, progress, request.trackNo, cancellation, true);
                 task.Wait();
                 if (cancellation.IsCancellationRequested) {
                     break;
                 }
                 source.SetSamples(task.Result.samples);
-                if (request.sources.All(s => s.HasSamples)) {
+                bool partReady = request.sources.All(s => s.HasSamples);
+                if (IsDiffSinger(phrase)) {
                     request.part.SetMix(request.mix);
+                    DocManager.Inst.ExecuteCmd(new PhraseRenderedNotification(request.part));
+                }
+                if (partReady) {
+                    if (!IsDiffSinger(phrase)) {
+                        request.part.SetMix(request.mix);
+                    }
                     DocManager.Inst.ExecuteCmd(new PartRenderedNotification(request.part));
                 }
             }
             progress.Clear();
+        }
+
+        private (RenderPhrase phrase, WaveSource source, RenderPartRequest request)[] OrderForPlayback(
+            (RenderPhrase phrase, WaveSource source, RenderPartRequest request)[] tuples) {
+            double playbackStartMs = project.timeAxis.TickPosToMsPos(startTick);
+            return tuples
+                .Select((tuple, index) => (tuple, index))
+                .OrderBy(item => RenderPriority.PlaybackBucket(
+                    item.tuple.source.offsetMs, item.tuple.source.EndMs, playbackStartMs))
+                .ThenBy(item => RenderPriority.PlaybackDistance(
+                    item.tuple.source.offsetMs, item.tuple.source.EndMs, playbackStartMs))
+                .ThenBy(item => item.index)
+                .Select(item => item.tuple)
+                .ToArray();
+        }
+
+        private (RenderPhrase phrase, WaveSource source, RenderPartRequest request)[] OrderForPreRender(
+            (RenderPhrase phrase, WaveSource source, RenderPartRequest request)[] tuples) {
+            var priorities = GetDiffSingerPriorityRanges();
+            return tuples
+                .Select((tuple, index) => (tuple, index))
+                .OrderBy(item => PreRenderPriorityBucket(item.tuple, priorities))
+                .ThenBy(item => PreRenderPriorityIndex(item.tuple, priorities))
+                .ThenBy(item => PreRenderPriorityDistance(item.tuple.phrase, priorities))
+                .ThenBy(item => item.index)
+                .Select(item => item.tuple)
+                .ToArray();
+        }
+
+        private int PreRenderPriorityBucket(
+            (RenderPhrase phrase, WaveSource source, RenderPartRequest request) tuple,
+            PreRenderPriority[] priorities) {
+            bool isDiffSinger = IsDiffSinger(tuple.phrase);
+            bool isPriorityPart = priorities.Any(priority => ReferenceEquals(tuple.request.part, priority.part));
+            bool overlapsPriority = priorities.Any(priority =>
+                ReferenceEquals(tuple.request.part, priority.part) &&
+                RenderPriority.Overlaps(tuple.phrase.position, tuple.phrase.end, priority.startTick, priority.endTick));
+            int earliestPriorityStart = priorities.Min(priority => priority.startTick);
+            return RenderPriority.PreRenderBucket(
+                isDiffSinger,
+                isPriorityPart,
+                overlapsPriority,
+                tuple.phrase.end > earliestPriorityStart);
+        }
+
+        private int PreRenderPriorityIndex(
+            (RenderPhrase phrase, WaveSource source, RenderPartRequest request) tuple,
+            PreRenderPriority[] priorities) {
+            for (int i = 0; i < priorities.Length; ++i) {
+                var priority = priorities[i];
+                if (ReferenceEquals(tuple.request.part, priority.part) &&
+                    RenderPriority.Overlaps(tuple.phrase.position, tuple.phrase.end, priority.startTick, priority.endTick)) {
+                    return i;
+                }
+            }
+            for (int i = 0; i < priorities.Length; ++i) {
+                if (ReferenceEquals(tuple.request.part, priorities[i].part)) {
+                    return i;
+                }
+            }
+            return int.MaxValue;
+        }
+
+        private int PreRenderPriorityDistance(RenderPhrase phrase, PreRenderPriority[] priorities) {
+            return priorities
+                .Select(priority => RenderPriority.PreRenderDistance(phrase.position, phrase.end, priority.startTick))
+                .DefaultIfEmpty(0)
+                .Min();
+        }
+
+        private bool IsDiffSinger(RenderPhrase phrase) {
+            return phrase.renderer.SingerType == USingerType.DiffSinger;
+        }
+
+        private PreRenderPriority[] GetDiffSingerPriorityRanges() {
+            return priorityRanges
+                .Where(priority =>
+                    priority.part.trackNo >= 0 &&
+                    priority.part.trackNo < project.tracks.Count &&
+                    project.tracks[priority.part.trackNo].RendererSettings.Renderer?.SingerType == USingerType.DiffSinger)
+                .ToArray();
         }
 
         public static void ReleaseSourceTemp() {

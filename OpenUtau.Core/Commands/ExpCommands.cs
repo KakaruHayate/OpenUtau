@@ -317,6 +317,8 @@ namespace OpenUtau.Core {
         readonly int lastY;
         int[] oldXs;
         int[] oldYs;
+        public int StartTick => Math.Min(x, lastX);
+        public int EndTick => Math.Max(x, lastX) + 1;
         public override ValidateOptions ValidateOptions
             => new ValidateOptions {
                 SkipTiming = true,
@@ -384,6 +386,14 @@ namespace OpenUtau.Core {
         readonly int[] newXs;
         readonly int[] newYs;
         readonly bool setReal;
+        public int StartTick => (oldXs ?? Array.Empty<int>())
+            .Concat(newXs ?? Array.Empty<int>())
+            .DefaultIfEmpty(0)
+            .Min();
+        public int EndTick => (oldXs ?? Array.Empty<int>())
+            .Concat(newXs ?? Array.Empty<int>())
+            .DefaultIfEmpty(Part.Duration)
+            .Max() + 1;
         public MergedSetCurveCommand(UProject project, UVoicePart part,
             string abbr, int[] oldXs, int[] oldYs, int[] newXs, int[] newYs, bool setReal = false) : base(part) {
             this.project = project;

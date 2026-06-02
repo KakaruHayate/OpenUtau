@@ -81,6 +81,9 @@ namespace OpenUtau.Core.DiffSinger {
 
         public Task<RenderResult> Render(RenderPhrase phrase, Progress progress, int trackNo, CancellationTokenSource cancellation, bool isPreRender) {
             var task = Task.Run(() => {
+                if (cancellation.IsCancellationRequested) {
+                    return new RenderResult();
+                }
                 lock (lockObj) {
                     if (cancellation.IsCancellationRequested) {
                         return new RenderResult();

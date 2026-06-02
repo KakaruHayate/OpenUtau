@@ -222,8 +222,48 @@ namespace OpenUtau.Core {
         public override string ToString() => $"Focus note {note.lyric} at {note.position}.";
     }
 
+    public class PreRenderPriority {
+        public readonly UVoicePart part;
+        public readonly int startTick;
+        public readonly int endTick;
+
+        public PreRenderPriority(UVoicePart part, int startTick, int endTick) {
+            this.part = part;
+            this.startTick = startTick;
+            this.endTick = endTick;
+        }
+    }
+
     public class PreRenderNotification : UNotification {
-        public override string ToString() => $"Pre-render notification.";
+        public readonly PreRenderPriority[] priorities;
+        public UVoicePart? priorityPart => System.Linq.Enumerable.FirstOrDefault(priorities)?.part;
+        public int priorityStartTick => System.Linq.Enumerable.FirstOrDefault(priorities)?.startTick ?? -1;
+        public int priorityEndTick => System.Linq.Enumerable.FirstOrDefault(priorities)?.endTick ?? -1;
+        public bool HasPriorityRange => priorities.Length > 0;
+
+        public PreRenderNotification() {
+            priorities = Array.Empty<PreRenderPriority>();
+        }
+
+        public PreRenderNotification(UVoicePart priorityPart, int priorityStartTick, int priorityEndTick)
+            : this(new[] { new PreRenderPriority(priorityPart, priorityStartTick, priorityEndTick) }) { }
+
+        public PreRenderNotification(System.Collections.Generic.IEnumerable<PreRenderPriority> priorities) {
+            this.priorities = System.Linq.Enumerable.ToArray(
+                System.Linq.Enumerable.Where(priorities, priority => priority.endTick > priority.startTick));
+            part = priorityPart;
+        }
+
+        public override string ToString() => HasPriorityRange
+            ? $"Pre-render notification {priorities.Length} prioritized range(s)."
+            : $"Pre-render notification.";
+    }
+
+    public class PhraseRenderedNotification : UNotification {
+        public PhraseRenderedNotification(UVoicePart part) {
+            this.part = part;
+        }
+        public override string ToString() => "Phrase rendered.";
     }
 
     public class PartRenderedNotification : UNotification {
