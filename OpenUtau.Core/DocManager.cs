@@ -263,6 +263,27 @@ namespace OpenUtau.Core {
             Publish(cmd);
             if (!undoGroup.DeferValidate) {
                 Project.Validate(cmd.ValidateOptions);
+                ScheduleRealCurveRefresh(cmd);
+            }
+        }
+
+        void ScheduleRealCurveRefresh(UCommand cmd) {
+            if (cmd is not ExpCommand expCommand) {
+                return;
+            }
+            var part = expCommand.Part;
+            if (!Project.parts.Contains(part) ||
+                part.trackNo < 0 ||
+                part.trackNo >= Project.tracks.Count) {
+                return;
+            }
+            Project.tracks[part.trackNo].RendererSettings.Renderer
+                ?.ScheduleRealCurveRefresh(Project, part, cmd);
+        }
+
+        void ScheduleRealCurveRefresh(IEnumerable<UCommand> commands) {
+            foreach (var cmd in commands) {
+                ScheduleRealCurveRefresh(cmd);
             }
         }
 
@@ -291,6 +312,7 @@ namespace OpenUtau.Core {
                 Project.ValidateFull();
             }
             undoGroup.Merge();
+            ScheduleRealCurveRefresh(undoGroup.Commands);
             undoGroup = null;
             Log.Information("undoGroup ended");
             ExecuteCmd(new PreRenderNotification());
@@ -326,6 +348,7 @@ namespace OpenUtau.Core {
                 Publish(cmd, true);
             }
             redoQueue.AddToBack(group);
+            ScheduleRealCurveRefresh(group.Commands);
             ExecuteCmd(new PreRenderNotification());
         }
 
@@ -343,6 +366,7 @@ namespace OpenUtau.Core {
                 Publish(cmd);
             }
             undoQueue.AddToBack(group);
+            ScheduleRealCurveRefresh(group.Commands);
             ExecuteCmd(new PreRenderNotification());
         }
 
