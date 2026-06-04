@@ -130,6 +130,7 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public partial bool DiffSingerVarianceLocalPitchPatch { get; set; }
         [Reactive] public partial bool DiffSingerLangCodeHide { get; set; }
         [Reactive] public partial bool DiffSingerLocalRetaking { get; set; }
+        [Reactive] public partial bool DiffSingerShowRenderPhraseBoundaries { get; set; }
 
         // Advanced
         [Reactive] public partial bool RememberMid { get; set; }
@@ -193,6 +194,7 @@ namespace OpenUtau.App.ViewModels {
             DiffSingerVarianceLocalPitchPatch = Preferences.Default.DiffSingerVarianceLocalPitchPatch;
             DiffSingerLangCodeHide = Preferences.Default.DiffSingerLangCodeHide;
             DiffSingerLocalRetaking = Preferences.Default.DiffSingerLocalRetaking;
+            DiffSingerShowRenderPhraseBoundaries = Preferences.Default.DiffSingerShowRenderPhraseBoundaries;
             SkipRenderingMutedTracks = Preferences.Default.SkipRenderingMutedTracks;
             ThemeName = Preferences.Default.ThemeName;
             DegreeStyle = Preferences.Default.DegreeStyle;
@@ -440,6 +442,12 @@ namespace OpenUtau.App.ViewModels {
                 .Subscribe(value => {
                     Preferences.Default.DiffSingerLocalRetaking = value;
                     Preferences.Save();
+                });
+            this.WhenAnyValue(vm => vm.DiffSingerShowRenderPhraseBoundaries)
+                .Subscribe(showBoundaries => {
+                    Preferences.Default.DiffSingerShowRenderPhraseBoundaries = showBoundaries;
+                    Preferences.Save();
+                    MessageBus.Current.SendMessage(new NotesRefreshEvent());
                 });
             this.WhenAnyValue(vm => vm.SkipRenderingMutedTracks)
                 .Subscribe(skipRenderingMutedTracks => {
