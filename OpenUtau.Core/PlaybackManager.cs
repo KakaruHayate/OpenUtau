@@ -188,6 +188,8 @@ namespace OpenUtau.Core {
         double startMs;
         public int StartTick => DocManager.Inst.Project.timeAxis.MsPosToTickPos(startMs);
         CancellationTokenSource renderCancellation;
+        UVoicePart preRenderFocusPart;
+        int preRenderFocusTick = -1;
 
         public Audio.IAudioOutput AudioOutput { get; set; } = new Audio.DummyAudioOutput();
         public bool OutputActive => AudioOutput.PlaybackState == PlaybackState.Playing;
@@ -373,13 +375,12 @@ namespace OpenUtau.Core {
             }
         }
 
-        void SchedulePreRender(PreRenderNotification? notification = null) {
-            Log.Information(notification?.HasPriorityRange == true
-                ? $"SchedulePreRender {notification.priorities.Length} prioritized range(s)"
-                : "SchedulePreRender");
-            var engine = notification?.HasPriorityRange == true
-                ? new RenderEngine(DocManager.Inst.Project, priorityRanges: notification.priorities)
-                : new RenderEngine(DocManager.Inst.Project);
+        void SchedulePreRender() {
+            Log.Information("SchedulePreRender");
+            var engine = new RenderEngine(
+                DocManager.Inst.Project,
+                focusPart: preRenderFocusPart,
+                focusTick: preRenderFocusTick);
             engine.PreRenderProject(ref renderCancellation);
         }
 
@@ -404,11 +405,28 @@ namespace OpenUtau.Core {
             } else if (cmd is LoadProjectNotification) {
                 StopPlayback();
                 renderCancellation?.Cancel();
+                preRenderFocusPart = null;
+                preRenderFocusTick = -1;
                 DocManager.Inst.ExecuteCmd(new SetPlayPosTickNotification(0));
+            } else if (cmd is LoadPartNotification loadPart) {
+                preRenderFocusPart = loadPart.part as UVoicePart;
+                preRenderFocusTick = loadPart.tick;
+            } else if (cmd is FocusNoteNotification focusNote) {
+                preRenderFocusPart = focusNote.part as UVoicePart;
+                preRenderFocusTick = focusNote.part?.position + focusNote.note.position ?? preRenderFocusTick;
+            } else if (cmd is SetPlayPosTickNotification setPlayPosTick) {
+                preRenderFocusTick = setPlayPosTick.playPosTick;
+            } else if (cmd is PreRenderNotification preRender) {
+                if (preRender.part is UVoicePart voicePart) {
+                    preRenderFocusPart = voicePart;
+                }
+                if (preRender.focusTick >= 0) {
+                    preRenderFocusTick = preRender.focusTick;
+                }
             }
             if (cmd is PreRenderNotification || cmd is LoadProjectNotification) {
                 if (Util.Preferences.Default.PreRender) {
-                    SchedulePreRender(cmd as PreRenderNotification);
+                    SchedulePreRender();
                 }
             }
         }
