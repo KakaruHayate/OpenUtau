@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.IO;
 using System.Linq;
 using System.Reactive;
-using System.Reflection;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -30,7 +28,6 @@ namespace OpenUtau.App.Controls {
     }
 
     public partial class PianoRoll : UserControl, IValueTip, ICmdSubscriber {
-
         public MainWindow? MainWindow { get; set; }
         public PianoRollViewModel ViewModel;
 
@@ -45,20 +42,7 @@ namespace OpenUtau.App.Controls {
         private ReactiveCommand<Unit, Unit>? noteDefaultsCommand;
         private ReactiveCommand<BatchEdit, Unit>? noteBatchEditCommand;
 
-        private Window RootWindow => (Window) TopLevel.GetTopLevel(this)!;
-
-        string? GetActionIdForShortcut(Key pressedKey, KeyModifiers pressedMods) {
-            foreach (var sc in Preferences.Default.Shortcuts) {
-                if (Enum.TryParse(sc.KeyName, out Key parsedKey) && 
-                    Enum.TryParse(sc.ModifiersName, out KeyModifiers parsedMods)) {
-                    
-                    if (KeyTranslator.IsKeyMatch(parsedKey, pressedKey) && parsedMods == pressedMods) {
-                        return sc.ActionId;
-                    }
-                }
-            }
-            return null;
-        }
+        private Window RootWindow => (Window)TopLevel.GetTopLevel(this)!;
 
         public PianoRoll(PianoRollViewModel model) {
             InitializeComponent();
@@ -125,24 +109,12 @@ namespace OpenUtau.App.Controls {
                 new BakePitch(),
                 new RandomizeTiming(),
                 new RandomizePhonemeOffset()
-            }.Select(edit => {
-                Avalonia.Input.KeyGesture? menuGesture = null;
-                var savedSc = Preferences.Default.Shortcuts?.FirstOrDefault(s => s.ActionId == edit.Name);
-                if (savedSc != null && 
-                    Enum.TryParse<Avalonia.Input.Key>(savedSc.KeyName, out var parsedKey) && 
-                    Enum.TryParse<Avalonia.Input.KeyModifiers>(savedSc.ModifiersName, out var parsedMods) && 
-                    parsedKey != Avalonia.Input.Key.None) {
-                    menuGesture = new Avalonia.Input.KeyGesture(parsedKey, parsedMods);
-                }
-
-                return new MenuItemViewModel() {
-                    Header = ThemeManager.GetString(edit.Name),
-                    InputGesture = menuGesture,
-                    Command = noteBatchEditCommand,
-                    CommandParameter = edit,
-                };
+            }.Select(edit => new MenuItemViewModel() {
+                Header = ThemeManager.GetString(edit.Name),
+                InputGesture = KeyTranslator.GetGestureForMenu(edit.Name),
+                Command = noteBatchEditCommand,
+                CommandParameter = edit,
             }));
-
             ViewModel.LyricBatchEdits.AddRange(new List<BatchEdit>() {
                 new RomajiToHiragana(),
                 new HiraganaToRomaji(),
@@ -155,24 +127,12 @@ namespace OpenUtau.App.Controls {
                 new DashToPlus(),
                 new DashToPlusTilda(),
                 new InsertSlur(),
-            }.Select(edit => {
-                Avalonia.Input.KeyGesture? menuGesture = null;
-                var savedSc = Preferences.Default.Shortcuts?.FirstOrDefault(s => s.ActionId == edit.Name);
-                if (savedSc != null && 
-                    Enum.TryParse<Avalonia.Input.Key>(savedSc.KeyName, out var parsedKey) && 
-                    Enum.TryParse<Avalonia.Input.KeyModifiers>(savedSc.ModifiersName, out var parsedMods) && 
-                    parsedKey != Avalonia.Input.Key.None) {
-                    menuGesture = new Avalonia.Input.KeyGesture(parsedKey, parsedMods);
-                }
-
-                return new MenuItemViewModel() {
-                    Header = ThemeManager.GetString(edit.Name),
-                    InputGesture = menuGesture,
-                    Command = noteBatchEditCommand,
-                    CommandParameter = edit,
-                };
+            }.Select(edit => new MenuItemViewModel() {
+                Header = ThemeManager.GetString(edit.Name),
+                InputGesture = KeyTranslator.GetGestureForMenu(edit.Name),
+                Command = noteBatchEditCommand,
+                CommandParameter = edit,
             }));
-
             ViewModel.ResetBatchEdits.AddRange(new List<BatchEdit>() {
                 new ResetAll(),
                 new ResetPitchBends(),
@@ -181,45 +141,22 @@ namespace OpenUtau.App.Controls {
                 new ResetVibratos(),
                 new ClearTimings(),
                 new ResetAliases(),
-            }.Select(edit => {
-                Avalonia.Input.KeyGesture? menuGesture = null;
-                var savedSc = Preferences.Default.Shortcuts?.FirstOrDefault(s => s.ActionId == edit.Name);
-                if (savedSc != null && 
-                    Enum.TryParse<Avalonia.Input.Key>(savedSc.KeyName, out var parsedKey) && 
-                    Enum.TryParse<Avalonia.Input.KeyModifiers>(savedSc.ModifiersName, out var parsedMods) && 
-                    parsedKey != Avalonia.Input.Key.None) {
-                    menuGesture = new Avalonia.Input.KeyGesture(parsedKey, parsedMods);
-                }
-
-                return new MenuItemViewModel() {
-                    Header = ThemeManager.GetString(edit.Name),
-                    InputGesture = menuGesture,
-                    Command = noteBatchEditCommand,
-                    CommandParameter = edit,
-                };
+            }.Select(edit => new MenuItemViewModel() {
+                Header = ThemeManager.GetString(edit.Name),
+                InputGesture = KeyTranslator.GetGestureForMenu(edit.Name),
+                Command = noteBatchEditCommand,
+                CommandParameter = edit,
             }));
             try {
                 ViewModel.ExternalBatchEdits.AddRange(
                     DocManager.Inst.ExternalBatchEditTypes
                         .Select(type => Activator.CreateInstance(type) as BatchEdit)
                         .Where(edit => edit != null)
-                        .Select(edit => {
-                            Avalonia.Input.KeyGesture? menuGesture = null;
-                            var savedSc = Preferences.Default.Shortcuts?.FirstOrDefault(s => s.ActionId == edit!.Name);
-                            
-                            if (savedSc != null && 
-                                Enum.TryParse<Avalonia.Input.Key>(savedSc.KeyName, out var parsedKey) && 
-                                Enum.TryParse<Avalonia.Input.KeyModifiers>(savedSc.ModifiersName, out var parsedMods) && 
-                                parsedKey != Avalonia.Input.Key.None) {
-                                menuGesture = new Avalonia.Input.KeyGesture(parsedKey, parsedMods);
-                            }
-
-                            return new MenuItemViewModel() {
-                                Header = ThemeManager.GetString(edit!.Name),
-                                InputGesture = menuGesture,
-                                Command = noteBatchEditCommand,
-                                CommandParameter = edit,
-                            };
+                        .Select(edit => new MenuItemViewModel() {
+                            Header = ThemeManager.GetString(edit!.Name),
+                            InputGesture = KeyTranslator.GetGestureForMenu(edit.Name),
+                            Command = noteBatchEditCommand,
+                            CommandParameter = edit,
                         })
                 );
             } catch (Exception e) {
@@ -230,35 +167,35 @@ namespace OpenUtau.App.Controls {
 
             ViewModel.NoteBatchEdits.Insert(6, new MenuItemViewModel() {
                 Header = ThemeManager.GetString("pianoroll.menu.notes.addbreath"),
-                InputGesture = KeyTranslator.GetGesture("Add Breath"),
+                InputGesture = KeyTranslator.GetGestureForMenu("Add Breath"),
                 Command = ReactiveCommand.Create(() => {
                     AddBreathNote();
                 })
             });
             ViewModel.NoteBatchEdits.Insert(9, new MenuItemViewModel() {
                 Header = ThemeManager.GetString("pianoroll.menu.notes.quantize"),
-                InputGesture = KeyTranslator.GetGesture("Quantize Notes"),
+                InputGesture = KeyTranslator.GetGestureForMenu("Quantize Notes"),
                 Command = ReactiveCommand.Create(() => {
                     QuantizeNotes();
                 })
             });
             ViewModel.NoteBatchEdits.Add(new MenuItemViewModel() {
                 Header = ThemeManager.GetString("pianoroll.menu.notes.randomizetuning"),
-                InputGesture = KeyTranslator.GetGesture("Randomize Tuning"),
+                InputGesture = KeyTranslator.GetGestureForMenu("Randomize Tuning"),
                 Command = ReactiveCommand.Create(() => {
                     RandomizeTuning();
                 })
             });
             ViewModel.NoteBatchEdits.Add(new MenuItemViewModel() {
                 Header = ThemeManager.GetString("pianoroll.menu.notes.lengthencrossfade"),
-                InputGesture = KeyTranslator.GetGesture("Lengthen Crossfade"),
+                InputGesture = KeyTranslator.GetGestureForMenu("Lengthen Crossfade"),
                 Command = ReactiveCommand.Create(() => {
                     LengthenCrossfade();
                 })
             });
             ViewModel.LyricBatchEdits.Add(new MenuItemViewModel() {
                 Header = ThemeManager.GetString("lyricsreplace.replace"),
-                InputGesture = KeyTranslator.GetGesture("lyricsreplace.replace"),
+                InputGesture = KeyTranslator.GetGestureForMenu("lyricsreplace.replace"),
                 Command = ReactiveCommand.Create(() => {
                     ReplaceLyrics();
                 })
@@ -880,18 +817,18 @@ namespace OpenUtau.App.Controls {
                             Header = ThemeManager.GetString("context.note.copy"),
                             Command = ViewModel.NoteCopyCommand,
                             CommandParameter = hitInfo,
-                            InputGesture = KeyTranslator.GetGesture("Copy"),
+                            InputGesture = KeyTranslator.GetGestureForMenu("menu.edit.copy"),
                         });
                         ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
                             Header = ThemeManager.GetString("context.note.delete"),
                             Command = ViewModel.NoteDeleteCommand,
                             CommandParameter = hitInfo,
-                            InputGesture = KeyTranslator.GetGesture("DeleteNotes"),
+                            InputGesture = KeyTranslator.GetGestureForMenu("menu.edit.delete"),
                         });
                         ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
                             Header = ThemeManager.GetString("context.note.pasteparameters"),
                             Command = ReactiveCommand.Create(() => ViewModel.NotesViewModel.PasteSelectedParams(RootWindow)),
-                            InputGesture = KeyTranslator.GetGesture("PasteParameters"),
+                            InputGesture = KeyTranslator.GetGestureForMenu("PasteParameters"),
                         });
                         ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
                             Header = ThemeManager.GetString("pianoroll.menu.notes"),
@@ -1415,9 +1352,8 @@ namespace OpenUtau.App.Controls {
         // To add a new keyboard shortcut to the Piano Roll:
         // 
         // 1. Add a new `case "YourActionName":` inside the switch statement below.
-        // 2. Open `Preferences.cs` and add a default key binding to the `Shortcuts` list
-        //    (e.g., new ShortcutBinding { ActionId = "YourActionName", KeyName = "...", ModifiersName = "..." })
-        // 3. Open `Strings.axaml` (and other language files) and add the display name:
+        // 2. Open `KeyTranslator.cs` and add a default key binding to the `Shortcuts` list
+        // 3. Open `Strings.axaml` and add the display name:
         //    <system:String x:Key="shortcut.YourActionName">Shortcut Name</system:String>
 
         bool OnKeyExtendedHandler(KeyEventArgs args) {
@@ -1431,13 +1367,7 @@ namespace OpenUtau.App.Controls {
             int snapUnit = project.resolution * 4 / notesVm.SnapDiv;
             int deltaTicks = notesVm.IsSnapOn ? snapUnit : 15;
 
-            bool isNone = args.KeyModifiers == KeyModifiers.None;
-            bool isAlt = args.KeyModifiers == KeyModifiers.Alt;
-            bool isCtrl = args.KeyModifiers == cmdKey;
-            bool isShift = args.KeyModifiers == KeyModifiers.Shift;
-            bool isBoth = args.KeyModifiers == (cmdKey | KeyModifiers.Shift);
-
-            if (PluginMenu.IsSubMenuOpen && isNone) {
+            if (PluginMenu.IsSubMenuOpen && args.KeyModifiers == KeyModifiers.None) {
                 if (ViewModel.LegacyPluginShortcuts.ContainsKey(args.Key)) {
                     var plugin = ViewModel.LegacyPluginShortcuts[args.Key];
                     if (plugin != null && plugin.Command != null) {
@@ -1450,7 +1380,8 @@ namespace OpenUtau.App.Controls {
             string mainPenIdx = Preferences.Default.PenPlusDefault ? "2+" : "2";
             string altPenIdx = Preferences.Default.PenPlusDefault ? "2" : "2+";
 
-            string? action = GetActionIdForShortcut(args.Key, args.KeyModifiers);
+            string? action = KeyTranslator.GetActionIdFromKey(args.Key, args.KeyModifiers);
+            if (action == null) return false;
 
             switch (action) {
                 // Playback & Selection
@@ -1472,8 +1403,8 @@ namespace OpenUtau.App.Controls {
                 case "DeselectAll": notesVm.DeselectNotes(); return true;
 
                 // UI & Windows
-                case "HideDetachedWindow": if (RootWindow is PianoRollDetachedWindow) RootWindow.Hide(); return true;
-                case "FullScreen": OnMenuFullScreen(this, new RoutedEventArgs()); return true;
+                case "CloseWindow": if (RootWindow is PianoRollDetachedWindow) RootWindow.Hide(); return true;
+                case "menu.tools.fullscreen": OnMenuFullScreen(this, new RoutedEventArgs()); return true;
                 case "OpenPluginMenu": if (PluginMenu.Parent is MenuItem batch) { batch.Open(); PluginMenu.Open(); } return true;
 
                 // Lyrics
@@ -1543,26 +1474,15 @@ namespace OpenUtau.App.Controls {
                 case "ExtendSelectionRight": notesVm.ExtendSelection(1); return true;
 
                 // Edit Operations
-                case "Undo": ViewModel.Undo(); return true;
-                case "Redo": ViewModel.Redo(); return true;
-                case "Copy":
-                    if (curveVm.IsSelected(notesVm.PrimaryKey)) curveVm.Copy(notesVm.Part);
-                    else notesVm.CopyNotes();
-                    return true;
-                case "Cut":
-                    if (curveVm.IsSelected(notesVm.PrimaryKey)) curveVm.Cut(notesVm.Part);
-                    else notesVm.CutNotes();
-                    return true;
-                case "Paste":
-                    if (DocManager.Inst.NotesClipboard != null && DocManager.Inst.NotesClipboard.Count > 0) notesVm.PasteNotes();
-                    else if (DocManager.Inst.CurvesClipboard != null && project.tracks[notesVm.Part.trackNo].TryGetExpDescriptor(project, notesVm.PrimaryKey, out var descriptor)) {
-                        curveVm.Paste(notesVm.Part, descriptor);
-                    }
-                    return true;
+                case "menu.edit.undo": ViewModel.Undo(); return true;
+                case "menu.edit.redo": ViewModel.Redo(); return true;
+                case "menu.edit.copy": ViewModel.Copy(); return true;
+                case "menu.edit.cut": ViewModel.Cut(); return true;
+                case "menu.edit.paste": ViewModel.Paste(); return true;
                 case "PastePlain": notesVm.PastePlainNotes(); return true;
                 case "PasteParameters": notesVm.PasteSelectedParams(RootWindow); return true;
                 case "InsertNote": notesVm.InsertNote(); return true;
-                case "DeleteNotes": notesVm.DeleteSelectedNotes(); return true;
+                case "menu.edit.delete": notesVm.DeleteSelectedNotes(); return true;
                 case "MergeNotes": notesVm.MergeSelectedNotes(); return true;
 
                 // Playhead & Timeline Navigation
@@ -1602,6 +1522,8 @@ namespace OpenUtau.App.Controls {
                     if (notesVm.Selection.FirstOrDefault() is UNote focusNote) DocManager.Inst.ExecuteCmd(new FocusNoteNotification(notesVm.Part, focusNote)); 
                     return true;
                 case "SearchNote": SearchNote(); return true;
+                case "MoveToNextPart": MoveToNextPart(true); return true;
+                case "MoveToPrevPart": MoveToNextPart(false); return true;
 
                 // others
                 case "Quantize Notes": QuantizeNotes(); return true;
@@ -1623,26 +1545,21 @@ namespace OpenUtau.App.Controls {
                 case "Hide Piano Roll": OnMenuHidePianoRoll(this, new RoutedEventArgs()); return true;
             }
             // External and batch note edits
-            if (!string.IsNullOrEmpty(action)) {
-                var allDynamicMenus = ViewModel.NoteBatchEdits
-                    .Concat(ViewModel.LyricBatchEdits)
-                    .Concat(ViewModel.ResetBatchEdits)
-                    .Concat(ViewModel.ExternalBatchEdits);
-
-                foreach (var menu in allDynamicMenus) {
-                    if (menu.CommandParameter is BatchEdit edit && edit.Name == action) {
-                        menu.Command?.Execute(edit);
-                        return true;
-                    }
+            var allDynamicMenus = ViewModel.NoteBatchEdits
+                .Concat(ViewModel.LyricBatchEdits)
+                .Concat(ViewModel.ResetBatchEdits)
+                .Concat(ViewModel.ExternalBatchEdits);
+            foreach (var menu in allDynamicMenus) {
+                if (menu.CommandParameter is BatchEdit edit && edit.Name == action) {
+                    menu.Command?.Execute(edit);
+                    return true;
                 }
             }
             // Legacy plugins
-            if (!string.IsNullOrEmpty(action)) {
-                foreach (var menu in ViewModel.LegacyPlugins) {
-                    if (menu.Header?.ToString() == action) {
-                        menu.Command?.Execute(menu.CommandParameter);
-                        return true;
-                    }
+            foreach (var menu in ViewModel.LegacyPlugins) {
+                if (menu.Header?.ToString() == action) {
+                    menu.Command?.Execute(menu.CommandParameter);
+                    return true;
                 }
             }
             return false;

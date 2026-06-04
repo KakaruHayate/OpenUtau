@@ -48,7 +48,6 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public PlaybackViewModel? PlaybackViewModel { get; set; }
         [Reactive] public CurveViewModel CurveViewModel { get; set; }
         [Reactive] public Dictionary<string, KeyGesture> Hotkeys { get; set; } = new Dictionary<string, KeyGesture>();
-        [Reactive] public Dictionary<string, string> HotkeyDisplayTexts { get; set; } = new Dictionary<string, string>();
 
         public double Width => Preferences.Default.PianorollWindowSize.Width;
         public double Height => Preferences.Default.PianorollWindowSize.Height;
@@ -116,32 +115,10 @@ namespace OpenUtau.App.ViewModels {
 
         public void ReloadShortcuts() {
             var newHotkeys = new Dictionary<string, KeyGesture>();
-            var newDisplayTexts = new Dictionary<string, string>();
-            
-            if (Preferences.Default.Shortcuts != null) {
-                foreach (var sc in Preferences.Default.Shortcuts) {
-                    // Functional Gesture Binding
-                    var gesture = KeyTranslator.GetGesture(sc.ActionId);
-                    if (gesture != null) {
-                        newHotkeys[sc.ActionId] = gesture;
-                    }
-
-                    // Friendly Display Text Binding
-                    Enum.TryParse<KeyModifiers>(sc.ModifiersName, out var parsedMods);
-                    string mods = KeyTranslator.GetFriendlyModifiersName(parsedMods);
-                    string key = KeyTranslator.GetFriendlyName(sc.KeyName); 
-                    
-                    if (string.IsNullOrEmpty(mods) || sc.ModifiersName == "None") {
-                        newDisplayTexts[sc.ActionId] = key;
-                    } else {
-                        newDisplayTexts[sc.ActionId] = KeyTranslator.IsMac 
-                            ? $"{mods}{key}" 
-                            : $"{mods.Replace(" + ", "+")}+{key}";
-                    }
-                }
+            foreach (var sc in KeyTranslator.Shortcuts) {
+                newHotkeys.TryAdd(sc.ActionId, sc.Gesture);
             }
             Hotkeys = newHotkeys;
-            HotkeyDisplayTexts = newDisplayTexts;
         }
 
         public PianoRollViewModel() {
@@ -235,6 +212,8 @@ namespace OpenUtau.App.ViewModels {
             });
             LoadLegacyPlugins();
             DocManager.Inst.AddSubscriber(this);
+            MessageBus.Current.Listen<ShortcutsRefreshEvent>()
+                .Subscribe(_ => ReloadShortcuts());
         }
 
         private void SetUndoState() {
@@ -254,27 +233,33 @@ namespace OpenUtau.App.ViewModels {
 
         private void LoadLegacyPlugins() {
             LegacyPlugins.Clear();
-            
             LegacyPlugins.AddRange(DocManager.Inst.Plugins.Select(plugin => new MenuItemViewModel() {
                 Header = plugin.Name,
-                InputGesture = KeyTranslator.GetGesture(plugin.Name),
+                InputGesture = KeyTranslator.GetGestureForMenu(plugin.Name),
                 Command = legacyPluginCommand,
                 CommandParameter = plugin,
             }));
 
             LegacyPluginShortcuts.Clear();
             foreach (MenuItemViewModel menu in LegacyPlugins) {
-                if (menu.InputGesture != null && !LegacyPluginShortcuts.ContainsKey(menu.InputGesture.Key)) {
-                    LegacyPluginShortcuts.Add(menu.InputGesture.Key, menu);
+                if (menu.CommandParameter is Classic.Plugin plugin) {
+                    if (Enum.TryParse(plugin.Shortcut, out Key key) && !LegacyPluginShortcuts.ContainsKey(key)) {
+                        LegacyPluginShortcuts.Add(key, menu);
+                    }
                 }
             }
-
-            LegacyPlugins.Add(new MenuItemViewModel() { Header = "-", Height = 1 });
+            LegacyPlugins.Add(new MenuItemViewModel() { // Separator
+                Header = "-",
+                Height = 1
+            });
             LegacyPlugins.Add(new MenuItemViewModel() {
                 Header = ThemeManager.GetString("pianoroll.menu.plugin.openfolder"),
                 Command = ReactiveCommand.Create(() => {
-                    try { OS.OpenFolder(PathManager.Inst.PluginsPath); } 
-                    catch (Exception e) { DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(e)); }
+                    try {
+                        OS.OpenFolder(PathManager.Inst.PluginsPath);
+                    } catch (Exception e) {
+                        DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(e));
+                    }
                 })
             });
             LegacyPlugins.Add(new MenuItemViewModel() {

@@ -12,16 +12,17 @@ using Avalonia.Input;
 
 namespace OpenUtau.App.Views {
     public partial class PreferencesDialog : Window {
-        private PreferencesViewModel? viewModel => this.DataContext as PreferencesViewModel;   
+        private PreferencesViewModel? viewModel => this.DataContext as PreferencesViewModel;
 
         public PreferencesDialog() {
             InitializeComponent();
         }
 
-        protected override void OnKeyDown(KeyEventArgs e) {
+        void OnKeyDown(object sender, KeyEventArgs e) {
             if (DataContext is PreferencesViewModel vm && vm.ActiveShortcut != null) {
                 // If they hit escape without modifiers, cancel listening
                 if (e.Key == Key.Escape && e.KeyModifiers == KeyModifiers.None) {
+                    vm.ActiveShortcut.IsAdding = false;
                     vm.ActiveShortcut.IsListening = false;
                     vm.ActiveShortcut.RefreshDisplay();
                     vm.ActiveShortcut = null;
@@ -33,19 +34,23 @@ namespace OpenUtau.App.Views {
                 e.Handled = true;
                 return;
             }
-
-            base.OnKeyDown(e);
         }
 
         public void OnShortcutRightClick(object sender, PointerReleasedEventArgs e) {
-            if (e.InitialPressMouseButton == MouseButton.Right && 
-                sender is Button btn && 
+            if (e.InitialPressMouseButton == MouseButton.Right &&
+                sender is Button btn &&
                 btn.DataContext is ShortcutItemViewModel item) {
-                
-                if (DataContext is PreferencesViewModel vm) {
-                    vm.ResetShortcut(item);
-                    e.Handled = true;
-                }
+                item.Reset();
+                e.Handled = true;
+            }
+        }
+        
+        void OnShortcutMiscClick(object? sender, RoutedEventArgs e) {
+            if (sender is Button btn &&
+                btn.DataContext is ShortcutItemViewModel item) {
+                item.CreateMenuItem();
+                btn.ContextMenu?.Open();
+                e.Handled = true;
             }
         }
 
@@ -163,7 +168,7 @@ namespace OpenUtau.App.Views {
             dialog.SetPrompt(ThemeManager.GetString("prefs.appearance.customtheme.create.prompt"));
             dialog.onFinish = s => {
                 if (string.IsNullOrEmpty(s)) {
-                    MessageBox.ShowModal(this, 
+                    MessageBox.ShowModal(this,
                         ThemeManager.GetString("prefs.appearance.customtheme.create.empty"),
                         ThemeManager.GetString("prefs.appearance.customtheme.create.title"));
                     return;
