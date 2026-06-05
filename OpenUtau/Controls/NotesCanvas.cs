@@ -4,8 +4,10 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using OpenUtau.App.ViewModels;
 using OpenUtau.Core;
+using OpenUtau.Core.Render;
 using OpenUtau.Core.Ustx;
 using OpenUtau.Core.Util;
 using ReactiveUI;
@@ -189,6 +191,7 @@ namespace OpenUtau.App.Controls {
                 }
                 RenderNoteBody(note, viewModel, context);
             }
+            RenderDiffSingerPhraseBoundaries(leftTick, rightTick, viewModel, context);
             if (ShowFinalPitch && !hidePitch) {
                 RenderFinalPitch(leftTick, rightTick, viewModel, context);
             }
@@ -333,6 +336,75 @@ namespace OpenUtau.App.Controls {
             Point rightBottom = new Point(leftTop.X + size.Width, leftTop.Y + size.Height);
 
             context.DrawRectangle(brush, null, new Rect(leftTop, rightBottom), 2, 2);
+        }
+
+        private static readonly IDashStyle PhraseBoundaryDashStyle = new ImmutableDashStyle(new double[] { 4, 2, 1, 2 }, 0);
+
+        private void RenderDiffSingerPhraseBoundaries(double viewLeftTick, double viewRightTick, NotesViewModel viewModel, DrawingContext context) {
+            if (!Preferences.Default.DiffSingerShowRenderPhraseBoundaries) {
+                return;
+            }
+            if (!TryGetDiffSingerRenderer(viewModel, out var renderer)) {
+                return;
+            }
+            var accent = ThemeManager.AccentBrush3;
+            var boundaryPen = new Pen(accent, 1) { DashStyle = PhraseBoundaryDashStyle };
+            var railPen = new Pen(accent, 2);
+            lock (Part!) {
+                foreach (var phrase in Part!.renderPhrases) {
+                    var (startTick, endTick) = GetRenderedPhraseTickBounds(phrase, renderer);
+                    if (startTick >= viewRightTick || endTick <= viewLeftTick) {
+                        continue;
+                    }
+                    double startX = viewModel.TickToneToPoint(startTick, 0).X;
+                    double endX = viewModel.TickToneToPoint(endTick, 0).X;
+                    double railStartX = Math.Clamp(startX, 0, Bounds.Width);
+                    double railEndX = Math.Clamp(endX, 0, Bounds.Width);
+                    if (railEndX > railStartX) {
+                        context.DrawLine(railPen, new Point(railStartX, 3.5), new Point(railEndX, 3.5));
+                    }
+                    DrawPhraseBoundaryLine(context, boundaryPen, startX);
+                    DrawPhraseBoundaryLine(context, boundaryPen, endX);
+                }
+            }
+        }
+
+        private void DrawPhraseBoundaryLine(DrawingContext context, IPen pen, double x) {
+            if (x < 0 || x > Bounds.Width) {
+                return;
+            }
+            double crispX = Math.Round(x) + 0.5;
+            context.DrawLine(pen, new Point(crispX, 0), new Point(crispX, Bounds.Height));
+        }
+
+        private bool TryGetDiffSingerRenderer(NotesViewModel viewModel, out IRenderer? renderer) {
+            renderer = null;
+            if (Part == null || viewModel.Project == null || Part.trackNo < 0 || Part.trackNo >= viewModel.Project.tracks.Count) {
+                return false;
+            }
+            var settings = viewModel.Project.tracks[Part.trackNo].RendererSettings;
+            renderer = settings?.Renderer;
+            return string.Equals(renderer?.ToString(), Renderers.DIFFSINGER, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(settings?.renderer, Renderers.DIFFSINGER, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private (double startTick, double endTick) GetRenderedPhraseTickBounds(RenderPhrase phrase, IRenderer? renderer) {
+            if (Part == null) {
+                return (0, 0);
+            }
+            try {
+                var layout = renderer?.Layout(phrase);
+                if (layout != null) {
+                    double startMs = layout.positionMs - layout.leadingMs;
+                    double endMs = startMs + layout.estimatedLengthMs;
+                    return (
+                        phrase.timeAxis.MsPosToTickPos(startMs) - Part.position,
+                        phrase.timeAxis.MsPosToTickPos(endMs) - Part.position);
+                }
+            } catch {
+                // Rendering invalid singers should not break piano roll painting.
+            }
+            return (phrase.position - phrase.leading - Part.position, phrase.end - Part.position);
         }
 
         private void RenderPitchBend(UNote note, NotesViewModel viewModel, DrawingContext context) {
