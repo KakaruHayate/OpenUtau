@@ -20,6 +20,7 @@ namespace OpenUtau.Core.DiffSinger {
         const string VELC = DiffSingerUtils.VELC;
         const string ENE = DiffSingerUtils.ENE;
         const string PEXP = DiffSingerUtils.PEXP;
+        const string SHMC = DiffSingerUtils.SHMC;
         const string VoiceColorHeader = DiffSingerUtils.VoiceColorHeader;
 
         static readonly HashSet<string> supportedExp = new HashSet<string>(){
@@ -33,6 +34,7 @@ namespace OpenUtau.Core.DiffSinger {
             VELC,
             ENE,
             PEXP,
+            SHMC,
             Format.Ustx.SHFC,
         };
 
@@ -330,6 +332,25 @@ namespace OpenUtau.Core.DiffSinger {
                 acousticInputs.Add(NamedOnnxValue.CreateFromTensor("velocity", velocityTensor));
             }
 
+            // Definition of SHMC: linear scale, Default 0 = original mouth shape,
+            // 100 = max mouth open (+1.0), -100 = max mouth closed (-1.0)
+            if (singer.dsConfig.use_shift_mouth_opening_embed) {
+                var shmcCurve = phrase.curves.FirstOrDefault(curve => curve.Item1 == SHMC);
+                float[] shmc;
+                if (shmcCurve != null) {
+                    shmc = DiffSingerUtils.SampleCurve(phrase, shmcCurve.Item2,
+                        0, frameMs, totalFrames, headFrames, tailFrames,
+                        x => x / 100.0) // <--- 用户输入除以 100 映射到 [-1.0, 1.0]
+                        .Select(f => (float)f).ToArray();
+                } else {
+                    // 如果用户没有画线，默认填充 0.0 (不发生形变)
+                    shmc = Enumerable.Repeat(0f, totalFrames).ToArray();
+                }
+                var shmcTensor = new DenseTensor<float>(shmc, new int[] { shmc.Length })
+                    .Reshape(new int[] { 1, shmc.Length }); // Shape: [1, T]
+                acousticInputs.Add(NamedOnnxValue.CreateFromTensor("shift_mouth_opening", shmcTensor));
+            }
+
             //Variance: Energy, Breathiness, Voicing and Tension
             if(
                 singer.dsConfig.useBreathinessEmbed
@@ -619,6 +640,16 @@ namespace OpenUtau.Core.DiffSinger {
                     max = 100,
                     defaultValue = 100,
                     isFlag = false
+                },
+                //shift mouth opening
+                new UExpressionDescriptor{
+                    name="shift mouth opening (curve)",
+                    abbr=SHMC,
+                    type=UExpressionType.Curve,
+                    min=-100,
+                    max=100,
+                    defaultValue=0,
+                    isFlag=false,
                 },
             };
             //speakers
