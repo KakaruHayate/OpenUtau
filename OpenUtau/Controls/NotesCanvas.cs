@@ -4,6 +4,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using OpenUtau.App.ViewModels;
 using OpenUtau.Core;
 using OpenUtau.Core.Render;
@@ -337,6 +338,8 @@ namespace OpenUtau.App.Controls {
             context.DrawRectangle(brush, null, new Rect(leftTop, rightBottom), 2, 2);
         }
 
+        private static readonly IDashStyle PhraseBoundaryDashStyle = new ImmutableDashStyle(new double[] { 4, 2, 1, 2 }, 0);
+
         private void RenderDiffSingerPhraseBoundaries(double viewLeftTick, double viewRightTick, NotesViewModel viewModel, DrawingContext context) {
             if (!Preferences.Default.DiffSingerShowRenderPhraseBoundaries) {
                 return;
@@ -344,8 +347,9 @@ namespace OpenUtau.App.Controls {
             if (!TryGetDiffSingerRenderer(viewModel, out var renderer)) {
                 return;
             }
-            var boundaryPen = new Pen(ThemeManager.AccentBrush3Semi, 1, DashStyle.Dash);
-            var railPen = new Pen(ThemeManager.AccentBrush3Semi, 2);
+            var accent = ThemeManager.AccentBrush3;
+            var boundaryPen = new Pen(accent, 1) { DashStyle = PhraseBoundaryDashStyle };
+            var railPen = new Pen(accent, 2);
             lock (Part!) {
                 foreach (var phrase in Part!.renderPhrases) {
                     var (startTick, endTick) = GetRenderedPhraseTickBounds(phrase, renderer);
@@ -363,6 +367,14 @@ namespace OpenUtau.App.Controls {
                     DrawPhraseBoundaryLine(context, boundaryPen, endX);
                 }
             }
+        }
+
+        private void DrawPhraseBoundaryLine(DrawingContext context, IPen pen, double x) {
+            if (x < 0 || x > Bounds.Width) {
+                return;
+            }
+            double crispX = Math.Round(x) + 0.5;
+            context.DrawLine(pen, new Point(crispX, 0), new Point(crispX, Bounds.Height));
         }
 
         private bool TryGetDiffSingerRenderer(NotesViewModel viewModel, out IRenderer? renderer) {
@@ -393,14 +405,6 @@ namespace OpenUtau.App.Controls {
                 // Rendering invalid singers should not break piano roll painting.
             }
             return (phrase.position - phrase.leading - Part.position, phrase.end - Part.position);
-        }
-
-        private void DrawPhraseBoundaryLine(DrawingContext context, IPen pen, double x) {
-            if (x < 0 || x > Bounds.Width) {
-                return;
-            }
-            double crispX = Math.Round(x) + 0.5;
-            context.DrawLine(pen, new Point(crispX, 0), new Point(crispX, Bounds.Height));
         }
 
         private void RenderPitchBend(UNote note, NotesViewModel viewModel, DrawingContext context) {
