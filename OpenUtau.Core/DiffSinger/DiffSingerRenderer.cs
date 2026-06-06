@@ -534,6 +534,10 @@ namespace OpenUtau.Core.DiffSinger {
             DiffSingerRealCurveScheduler.TrySchedule(project, part, command);
         }
 
+        public void ScheduleFullRealCurveRefresh(UProject project, UVoicePart part) {
+            DiffSingerRealCurveScheduler.ScheduleForUndo(project, part);
+        }
+
         public RenderPitchResult LoadRenderedPitch(RenderPhrase phrase, HashSet<int> selectedNotePositions) {
             if (!Preferences.Default.DiffSingerLocalRetaking) {
                 return LoadRenderedPitch(phrase);
