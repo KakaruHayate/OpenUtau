@@ -350,22 +350,24 @@ namespace OpenUtau.App.Controls {
             var accent = ThemeManager.AccentBrush3;
             var boundaryPen = new Pen(accent, 1) { DashStyle = PhraseBoundaryDashStyle };
             var railPen = new Pen(accent, 2);
+            RenderPhrase[] phrases;
             lock (Part!) {
-                foreach (var phrase in Part!.renderPhrases) {
-                    var (startTick, endTick) = GetRenderedPhraseTickBounds(phrase, renderer);
-                    if (startTick >= viewRightTick || endTick <= viewLeftTick) {
-                        continue;
-                    }
-                    double startX = viewModel.TickToneToPoint(startTick, 0).X;
-                    double endX = viewModel.TickToneToPoint(endTick, 0).X;
-                    double railStartX = Math.Clamp(startX, 0, Bounds.Width);
-                    double railEndX = Math.Clamp(endX, 0, Bounds.Width);
-                    if (railEndX > railStartX) {
-                        context.DrawLine(railPen, new Point(railStartX, 3.5), new Point(railEndX, 3.5));
-                    }
-                    DrawPhraseBoundaryLine(context, boundaryPen, startX);
-                    DrawPhraseBoundaryLine(context, boundaryPen, endX);
+                phrases = Part!.renderPhrases.ToArray();
+            }
+            foreach (var phrase in phrases) {
+                var (startTick, endTick) = GetRenderedPhraseTickBounds(phrase, renderer);
+                if (startTick >= viewRightTick || endTick <= viewLeftTick) {
+                    continue;
                 }
+                double startX = viewModel.TickToneToPoint(startTick, 0).X;
+                double endX = viewModel.TickToneToPoint(endTick, 0).X;
+                double railStartX = Math.Clamp(startX, 0, Bounds.Width);
+                double railEndX = Math.Clamp(endX, 0, Bounds.Width);
+                if (railEndX > railStartX) {
+                    context.DrawLine(railPen, new Point(railStartX, 3.5), new Point(railEndX, 3.5));
+                }
+                DrawPhraseBoundaryLine(context, boundaryPen, startX);
+                DrawPhraseBoundaryLine(context, boundaryPen, endX);
             }
         }
 
