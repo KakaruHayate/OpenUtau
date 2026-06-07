@@ -339,6 +339,7 @@ namespace OpenUtau.App.Controls {
         }
 
         private static readonly IDashStyle PhraseBoundaryDashStyle = new ImmutableDashStyle(new double[] { 4, 2, 1, 2 }, 0);
+        private static readonly IBrush PhraseOverlapBrush = new ImmutableSolidColorBrush(Color.FromRgb(0xFF, 0x8C, 0x00));
 
         private void RenderDiffSingerPhraseBoundaries(double viewLeftTick, double viewRightTick, NotesViewModel viewModel, DrawingContext context) {
             if (!Preferences.Default.DiffSingerShowRenderPhraseBoundaries) {
@@ -350,32 +351,55 @@ namespace OpenUtau.App.Controls {
             var accent = ThemeManager.AccentBrush3;
             var boundaryPen = new Pen(accent, 1) { DashStyle = PhraseBoundaryDashStyle };
             var railPen = new Pen(accent, 2);
+            var overlapRailPen = new Pen(PhraseOverlapBrush, 2);
             RenderPhrase[] phrases;
             lock (Part!) {
                 phrases = Part!.renderPhrases.ToArray();
             }
+            var visible = new List<(double startTick, double endTick)>(phrases.Length);
             foreach (var phrase in phrases) {
                 var (startTick, endTick) = GetRenderedPhraseTickBounds(phrase, renderer);
                 if (startTick >= viewRightTick || endTick <= viewLeftTick) {
                     continue;
                 }
-                double startX = viewModel.TickToneToPoint(startTick, 0).X;
-                double endX = viewModel.TickToneToPoint(endTick, 0).X;
-                double railStartX = Math.Clamp(startX, 0, Bounds.Width);
-                double railEndX = Math.Clamp(endX, 0, Bounds.Width);
-                if (railEndX > railStartX) {
-                    context.DrawLine(railPen, new Point(railStartX, 3.5), new Point(railEndX, 3.5));
+                visible.Add((startTick, endTick));
+            }
+            foreach (var (startTick, endTick) in visible) {
+                DrawPhraseBoundaryLine(context, boundaryPen, viewModel.TickToneToPoint(startTick, 0).X);
+                DrawPhraseBoundaryLine(context, boundaryPen, viewModel.TickToneToPoint(endTick, 0).X);
+            }
+            var events = new List<(double tick, int delta)>(visible.Count * 2);
+            foreach (var (startTick, endTick) in visible) {
+                events.Add((startTick, +1));
+                events.Add((endTick, -1));
+            }
+            events.Sort((a, b) => a.tick.CompareTo(b.tick));
+            int coverage = 0;
+            double? segStart = null;
+            int i = 0;
+            while (i < events.Count) {
+                double tick = events[i].tick;
+                if (segStart.HasValue && coverage > 0 && tick > segStart.Value) {
+                    double startX = Math.Clamp(viewModel.TickToneToPoint(segStart.Value, 0).X, 0, Bounds.Width);
+                    double endX = Math.Clamp(viewModel.TickToneToPoint(tick, 0).X, 0, Bounds.Width);
+                    if (endX > startX) {
+                        var pen = coverage >= 2 ? overlapRailPen : railPen;
+                        context.DrawLine(pen, new Point(startX, 3.5), new Point(endX, 3.5));
+                    }
                 }
-                DrawPhraseBoundaryLine(context, boundaryPen, startX);
-                DrawPhraseBoundaryLine(context, boundaryPen, endX);
+                while (i < events.Count && events[i].tick == tick) {
+                    coverage += events[i].delta;
+                    i++;
+                }
+                segStart = tick;
             }
         }
 
         private void DrawPhraseBoundaryLine(DrawingContext context, IPen pen, double x) {
-            if (x < 0 || x > Bounds.Width) {
+            if (Bounds.Width < 1 || x < 0 || x > Bounds.Width) {
                 return;
             }
-            double crispX = Math.Round(x) + 0.5;
+            double crispX = Math.Clamp(Math.Round(x) + 0.5, 0.5, Bounds.Width - 0.5);
             context.DrawLine(pen, new Point(crispX, 0), new Point(crispX, Bounds.Height));
         }
 
