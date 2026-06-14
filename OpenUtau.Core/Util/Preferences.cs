@@ -226,6 +226,8 @@ namespace OpenUtau.Core.Util {
             public bool LockUnselectedNotesExpressions = true;
             public ShortcutBinding[] Shortcuts = [];
             public ShortcutBinding[] PluginShortcuts = [];
+            public bool LyricLivePreview = true;
+            public bool LyricApplySelectionOnly = true;
             public bool VoicebankPublishUseIgnore = true;
             public string VoicebankPublishIgnores = @"#Adobe Audition
 *.pkf
