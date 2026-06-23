@@ -223,6 +223,10 @@ namespace OpenUtau.Core {
                     if (realCurvesNotif.part is UVoicePart voicePart) {
                         RealCurveUpdater.Apply(Project, voicePart, realCurvesNotif.updates);
                     }
+                } else if (cmd is RealCurveCoverageNotification coverageNotif) {
+                    if (coverageNotif.part is UVoicePart coveragePart) {
+                        RealCurveUpdater.TrimToCoverage(Project, coveragePart, coverageNotif.ranges);
+                    }
                 } else if (cmd is SingersChangedNotification) {
                     SingerManager.Inst.SearchAllSingers();
                 } else if (cmd is ValidateProjectNotification) {
@@ -324,7 +328,9 @@ namespace OpenUtau.Core {
                 }
                 Publish(cmd, true);
             }
+            ScheduleRealCurveRefresh(undoGroup.Commands);
             undoGroup.Commands.Clear();
+            ExecuteCmd(new PreRenderNotification());
         }
 
         public void Undo() {
