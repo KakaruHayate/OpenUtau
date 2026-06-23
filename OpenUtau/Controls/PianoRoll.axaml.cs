@@ -39,6 +39,10 @@ namespace OpenUtau.App.Controls {
         private Point valueTipPointerPosition;
         private bool shouldOpenNotesContextMenu;
 
+        private bool isSelectingRange;
+        private Point rangeSelectStartPoint = default;
+        private const double RangeSelectThreshold = 5; // pixels
+
         private ReactiveCommand<Unit, Unit>? lyricsDialogCommand;
         private ReactiveCommand<Unit, Unit>? noteDefaultsCommand;
         private ReactiveCommand<BatchEdit, Unit>? noteBatchEditCommand;
@@ -50,11 +54,19 @@ namespace OpenUtau.App.Controls {
             DataContext = ViewModel = model;
             ValueTip.IsVisible = false;
             SetPenToolIcon();
-            SetDrawPitchToolIcon();
-            SetDrawLinePitchToolIcon();
             penTool.AddHandler(PointerPressedEvent, OnToolButtonPointerPressed, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
-            drawPitchTool.AddHandler(PointerPressedEvent, OnToolButtonPointerPressed, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
-            drawLinePitchTool.AddHandler(PointerPressedEvent, OnToolButtonPointerPressed, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, true);
+            this.LayoutUpdated += PianoRollLayoutUpdated;
+        }
+
+        private void PianoRollLayoutUpdated(object? sender, EventArgs e) {
+            UpdatePortraitPosition();
+        }
+
+        private void UpdatePortraitPosition() {
+            if (PortraitImage.DesiredSize.Width == 0 || PortraitCanvas.Bounds.Width == 0) return;
+            // Position at top-right of row 3, with 100px margin from right
+            Canvas.SetTop(PortraitImage, 0);
+            Canvas.SetLeft(PortraitImage, PortraitCanvas.Bounds.Width - PortraitImage.DesiredSize.Width - 100);
         }
 
         public void InitializePianoRollWindowAsync() {
@@ -118,7 +130,6 @@ namespace OpenUtau.App.Controls {
                 new RandomizePhonemeOffset()
             }.Select(edit => new MenuItemViewModel() {
                 Header = ThemeManager.GetString(edit.Name),
-                InputGesture = KeyTranslator.GetGestureForMenu(edit.Name),
                 Command = noteBatchEditCommand,
                 CommandParameter = edit,
             }));
@@ -136,7 +147,6 @@ namespace OpenUtau.App.Controls {
                 new InsertSlur(),
             }.Select(edit => new MenuItemViewModel() {
                 Header = ThemeManager.GetString(edit.Name),
-                InputGesture = KeyTranslator.GetGestureForMenu(edit.Name),
                 Command = noteBatchEditCommand,
                 CommandParameter = edit,
             }));
@@ -150,7 +160,6 @@ namespace OpenUtau.App.Controls {
                 new ResetAliases(),
             }.Select(edit => new MenuItemViewModel() {
                 Header = ThemeManager.GetString(edit.Name),
-                InputGesture = KeyTranslator.GetGestureForMenu(edit.Name),
                 Command = noteBatchEditCommand,
                 CommandParameter = edit,
             }));
@@ -161,7 +170,6 @@ namespace OpenUtau.App.Controls {
                         .Where(edit => edit != null)
                         .Select(edit => new MenuItemViewModel() {
                             Header = ThemeManager.GetString(edit!.Name),
-                            InputGesture = KeyTranslator.GetGestureForMenu(edit.Name),
                             Command = noteBatchEditCommand,
                             CommandParameter = edit,
                         })
@@ -174,35 +182,30 @@ namespace OpenUtau.App.Controls {
 
             ViewModel.NoteBatchEdits.Insert(6, new MenuItemViewModel() {
                 Header = ThemeManager.GetString("pianoroll.menu.notes.addbreath"),
-                InputGesture = KeyTranslator.GetGestureForMenu("Add Breath"),
                 Command = ReactiveCommand.Create(() => {
                     AddBreathNote();
                 })
             });
             ViewModel.NoteBatchEdits.Insert(9, new MenuItemViewModel() {
                 Header = ThemeManager.GetString("pianoroll.menu.notes.quantize"),
-                InputGesture = KeyTranslator.GetGestureForMenu("Quantize Notes"),
                 Command = ReactiveCommand.Create(() => {
                     QuantizeNotes();
                 })
             });
             ViewModel.NoteBatchEdits.Add(new MenuItemViewModel() {
                 Header = ThemeManager.GetString("pianoroll.menu.notes.randomizetuning"),
-                InputGesture = KeyTranslator.GetGestureForMenu("Randomize Tuning"),
                 Command = ReactiveCommand.Create(() => {
                     RandomizeTuning();
                 })
             });
             ViewModel.NoteBatchEdits.Add(new MenuItemViewModel() {
                 Header = ThemeManager.GetString("pianoroll.menu.notes.lengthencrossfade"),
-                InputGesture = KeyTranslator.GetGestureForMenu("Lengthen Crossfade"),
                 Command = ReactiveCommand.Create(() => {
                     LengthenCrossfade();
                 })
             });
             ViewModel.LyricBatchEdits.Add(new MenuItemViewModel() {
                 Header = ThemeManager.GetString("lyricsreplace.replace"),
-                InputGesture = KeyTranslator.GetGestureForMenu("lyricsreplace.replace"),
                 Command = ReactiveCommand.Create(() => {
                     ReplaceLyrics();
                 })
@@ -379,31 +382,13 @@ namespace OpenUtau.App.Controls {
             _longPressCts = null;
         }
         void PenToolListBox_PointerReleased(object? sender, PointerReleasedEventArgs args) {
-            FlyoutBase.GetAttachedFlyout(penTool)?.Hide();
+            FlyoutBase.GetAttachedFlyout(penTool)?.Hide(); ;
             SetPenToolIcon();
-        }
-        void DrawPitchToolListBox_PointerReleased(object? sender, PointerReleasedEventArgs args) {
-            FlyoutBase.GetAttachedFlyout(drawPitchTool)?.Hide();
-            SetDrawPitchToolIcon();
-        }
-        void DrawLinePitchToolListBox_PointerReleased(object? sender, PointerReleasedEventArgs args) {
-            FlyoutBase.GetAttachedFlyout(drawLinePitchTool)?.Hide();
-            SetDrawLinePitchToolIcon();
         }
         void SetPenToolIcon() {
             penTool.Classes.Remove("penTool");
             penTool.Classes.Remove("penPlusTool");
             penTool.Classes.Add(ViewModel.EditTool.PenToolVariation == 1 ? "penPlusTool" : "penTool");
-        }
-        void SetDrawPitchToolIcon() {
-            drawPitchTool.Classes.Remove("drawPitchTool");
-            drawPitchTool.Classes.Remove("overwritePitchTool");
-            drawPitchTool.Classes.Add(ViewModel.EditTool.DrawPitchToolVariation == 1 ? "overwritePitchTool" : "drawPitchTool");
-        }
-        void SetDrawLinePitchToolIcon() {
-            drawLinePitchTool.Classes.Remove("drawLinePitchTool");
-            drawLinePitchTool.Classes.Remove("overwriteLinePitchTool");
-            drawLinePitchTool.Classes.Add(ViewModel.EditTool.DrawLinePitchToolVariation == 1 ? "overwriteLinePitchTool" : "drawLinePitchTool");
         }
 
         void SearchNote() {
@@ -642,6 +627,12 @@ namespace OpenUtau.App.Controls {
                 ViewModel.NotesViewModel.PointToLineTick(point.Position, out int left, out int right);
                 int tick = left + ViewModel.NotesViewModel.Part?.position ?? 0;
                 ViewModel.PlaybackViewModel?.MovePlayPos(tick);
+            } else if (point.Properties.IsRightButtonPressed) {
+                args.Pointer.Capture(control);
+                isSelectingRange = true;
+                rangeSelectStartPoint = point.Position;
+                LyricBox?.EndEdit();
+                return;
             }
             LyricBox?.EndEdit();
         }
@@ -653,11 +644,41 @@ namespace OpenUtau.App.Controls {
                 ViewModel.NotesViewModel.PointToLineTick(point.Position, out int left, out int right);
                 int tick = left + ViewModel.NotesViewModel.Part?.position ?? 0;
                 ViewModel.PlaybackViewModel?.MovePlayPos(tick);
+            } else if (point.Properties.IsRightButtonPressed && isSelectingRange) {
+                double dx = Math.Abs(point.Position.X - rangeSelectStartPoint.X);
+                if (dx >= RangeSelectThreshold) {
+                    UpdateRangeSelection(point.Position);
+                }
             }
         }
 
         public void TimelinePointerReleased(object sender, PointerReleasedEventArgs args) {
+            if (isSelectingRange && args.InitialPressMouseButton == MouseButton.Right) {
+                isSelectingRange = false;
+                var control = (Control)sender;
+                var point = args.GetCurrentPoint(control);
+                double dx = Math.Abs(point.Position.X - rangeSelectStartPoint.X);
+                if (dx < RangeSelectThreshold) {
+                    DocManager.Inst.ExecuteCmd(new SetRangeSelectionNotification(0, 0));
+                }
+                args.Pointer.Capture(null);
+                return;
+            }
             args.Pointer.Capture(null);
+        }
+
+        public void TimelineDoubleTapped(object sender, TappedEventArgs args) {
+            DocManager.Inst.ExecuteCmd(new SetRangeSelectionNotification(0, 0));
+        }
+
+        private void UpdateRangeSelection(Point currentPoint) {
+            var notesVm = ViewModel.NotesViewModel;
+            int partPos = notesVm.Part?.position ?? 0;
+            notesVm.PointToLineTick(rangeSelectStartPoint, out int startLeft, out int startRight);
+            notesVm.PointToLineTick(currentPoint, out int endLeft, out int endRight);
+            int left = Math.Min(startLeft, endLeft);
+            int right = Math.Max(startRight, endRight);
+            DocManager.Inst.ExecuteCmd(new SetRangeSelectionNotification(left + partPos, right + partPos));
         }
 
         public void NotesCanvasPointerPressed(object sender, PointerPressedEventArgs args) {
@@ -668,7 +689,19 @@ namespace OpenUtau.App.Controls {
             var control = (Control)sender;
             var point = args.GetCurrentPoint(control);
             if (editState != null) {
-                return;
+                // Finalize pitch curve in adjusting phase before starting a new edit
+                if (editState is PitchCurveState pcs2 && pcs2.IsInAdjustingPhase) {
+                    if (point.Properties.IsLeftButtonPressed) {
+                        pcs2.Apply();
+                        pcs2.End(pointer: args.Pointer, point: point.Position);
+                    } else {
+                        // Right-click during adjusting: cancel the edit
+                        pcs2.Cancel(args.Pointer);
+                    }
+                    editState = null;
+                } else {
+                    return;
+                }
             }
             if (point.Properties.IsLeftButtonPressed) {
                 NotesCanvasLeftPointerPressed(control, point, args);
@@ -687,18 +720,19 @@ namespace OpenUtau.App.Controls {
         private void NotesCanvasLeftPointerPressed(Control control, PointerPoint point, PointerPressedEventArgs args) {
             if (ViewModel.EditTool.IsPitchTool) {
                 ViewModel.NotesViewModel.DeselectNotes();
-                if (args.KeyModifiers == KeyModifiers.Alt) {
-                    editState = new SmoothenPitchState(control, ViewModel, this);
-                    return;
-                } else if (args.KeyModifiers != cmdKey) {
-                    if (ViewModel.EditTool.CurrentTool == EditTools.DrawPitchTool) {
-                        editState = new DrawPitchState(control, ViewModel, this);
-                    } else if (ViewModel.EditTool.CurrentTool == EditTools.DrawLinePitchTool) {
-                        editState = new DrawLinePitchState(control, ViewModel, this);
-                    } else if (ViewModel.EditTool.CurrentTool == EditTools.OverwritePitchTool) {
-                        editState = new OverwritePitchState(control, ViewModel, this);
-                    } else if (ViewModel.EditTool.CurrentTool == EditTools.OverwriteLinePitchTool) {
-                        editState = new OverwriteAdaptivePitchState(control, ViewModel, this);
+                if (args.KeyModifiers != cmdKey) {
+                    bool overwrite = ViewModel.EditTool.OverwritePitch;
+                    EditTools tool = ViewModel.EditTool.CurrentTool;
+                    if (tool == EditTools.PitchSmoothenTool) {
+                        editState = new SmoothenPitchState(control, ViewModel, this, overwrite);
+                    } else if (tool == EditTools.DrawPitchTool) {
+                        editState = new DrawPitchState(control, ViewModel, this, overwrite);
+                    } else if (tool == EditTools.PitchLineTool) {
+                        editState = new PitchCurveState(control, ViewModel, this, PitchPreviewLine, PitchCurveState.CurveMode.Line, overwrite);
+                    } else if (tool == EditTools.PitchSCurveTool) {
+                        editState = new PitchCurveState(control, ViewModel, this, PitchPreviewLine, PitchCurveState.CurveMode.SCurve, overwrite);
+                    } else if (tool == EditTools.PitchSineWaveTool) {
+                        editState = new PitchCurveState(control, ViewModel, this, PitchPreviewLine, PitchCurveState.CurveMode.Sine, overwrite);
                     }
                     return;
                 }
@@ -873,18 +907,18 @@ namespace OpenUtau.App.Controls {
                             Header = ThemeManager.GetString("context.note.copy"),
                             Command = ViewModel.NoteCopyCommand,
                             CommandParameter = hitInfo,
-                            InputGesture = KeyTranslator.GetGestureForMenu("menu.edit.copy"),
+                            InputGesture = new KeyGesture(Key.C, KeyModifiers.Control),
                         });
                         ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
                             Header = ThemeManager.GetString("context.note.delete"),
                             Command = ViewModel.NoteDeleteCommand,
                             CommandParameter = hitInfo,
-                            InputGesture = KeyTranslator.GetGestureForMenu("menu.edit.delete"),
+                            InputGesture = new KeyGesture(Key.Delete),
                         });
                         ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
                             Header = ThemeManager.GetString("context.note.pasteparameters"),
                             Command = ReactiveCommand.Create(() => ViewModel.NotesViewModel.PasteSelectedParams(RootWindow)),
-                            InputGesture = KeyTranslator.GetGestureForMenu("PasteParameters"),
+                            InputGesture = new KeyGesture(Key.V, KeyModifiers.Alt),
                         });
                         ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
                             Header = ThemeManager.GetString("pianoroll.menu.notes"),
@@ -949,7 +983,7 @@ namespace OpenUtau.App.Controls {
             if (ViewModel?.NotesViewModel?.HitTest == null) {
                 return;
             }
-            if (ViewModel.EditTool.IsMatch([EditTools.DrawPitchTool, EditTools.DrawLinePitchTool, EditTools.OverwritePitchTool, EditTools.OverwriteLinePitchTool, EditTools.EraserTool]) && args.KeyModifiers != cmdKey) {
+            if (ViewModel.EditTool.IsMatch([EditTools.DrawPitchTool, EditTools.PitchLineTool, EditTools.PitchSCurveTool, EditTools.PitchSineWaveTool, EditTools.PitchSmoothenTool, EditTools.EraserTool]) && args.KeyModifiers != cmdKey) {
                 Cursor = null;
                 return;
             }
@@ -994,7 +1028,26 @@ namespace OpenUtau.App.Controls {
             editState.ctrlHeld = args.KeyModifiers == cmdKey;
             editState.altHeld = args.KeyModifiers == KeyModifiers.Alt;
             editState.Update(point.Pointer, point.Position);
-            editState.End(point.Pointer, point.Position);
+
+            // Two-phase handling for S-curve and Sine wave tools:
+            // On first mouse up, transition to adjusting phase instead of ending.
+            if (editState is PitchCurveState pcs) {
+                if (pcs.Mode == PitchCurveState.CurveMode.Line) {
+                    // Line tool: apply immediately on mouse up
+                    pcs.Apply();
+                    pcs.End(pointer: args.Pointer, point: point.Position);
+                } else {
+                    // S-curve / Sine: transition to adjusting phase, keep pointer captured
+                    if (!pcs.TransitionToAdjusting(point.Position)) {
+                        // TransitionToAdjusting returned false (click without drag) — already cancelled
+                        editState = null;
+                        return;
+                    }
+                    return;
+                }
+            } else {
+                editState.End(point.Pointer, point.Position);
+            }
             editState = null;
             Cursor = null;
         }
@@ -1423,7 +1476,13 @@ namespace OpenUtau.App.Controls {
             int snapUnit = project.resolution * 4 / notesVm.SnapDiv;
             int deltaTicks = notesVm.IsSnapOn ? snapUnit : 15;
 
-            if (PluginMenu.IsSubMenuOpen && args.KeyModifiers == KeyModifiers.None) {
+            bool isNone = args.KeyModifiers == KeyModifiers.None;
+            bool isAlt = args.KeyModifiers == KeyModifiers.Alt;
+            bool isCtrl = args.KeyModifiers == cmdKey;
+            bool isShift = args.KeyModifiers == KeyModifiers.Shift;
+            bool isBoth = args.KeyModifiers == (cmdKey | KeyModifiers.Shift);
+
+            if (PluginMenu.IsSubMenuOpen && isNone) {
                 if (ViewModel.LegacyPluginShortcuts.ContainsKey(args.Key)) {
                     var plugin = ViewModel.LegacyPluginShortcuts[args.Key];
                     if (plugin != null && plugin.Command != null) {
@@ -1479,11 +1538,14 @@ namespace OpenUtau.App.Controls {
                 case "ToolSelect2Main": ViewModel.ToolIndex = 1; ViewModel.PenToolIndex = 0; return true;
                 case "ToolSelect2Alt": ViewModel.ToolIndex = 1; ViewModel.PenToolIndex = 1; return true;
                 case "ToolSelect3": ViewModel.ToolIndex = 2; return true;
-                case "ToolSelect4Main": ViewModel.ToolIndex = 3; ViewModel.DrawPitchToolIndex = 0; return true;
-                case "ToolSelect4Overwrite": ViewModel.ToolIndex = 3; ViewModel.DrawPitchToolIndex = 1; return true;
-                case "ToolSelect4Line": ViewModel.ToolIndex = 4; ViewModel.DrawLinePitchToolIndex = 0; return true;
-                case "ToolSelect4LineOverwrite": ViewModel.ToolIndex = 4; ViewModel.DrawLinePitchToolIndex = 1; return true;
-                case "ToolSelect5": ViewModel.ToolIndex = 5; return true;
+                case "ToolSelect4Main": ViewModel.ToolIndex = 3; ViewModel.PitchOverwrite = false; return true;
+                case "ToolSelect4Overwrite": ViewModel.ToolIndex = 3; ViewModel.PitchOverwrite = true; return true;
+                case "ToolSelect4Line": ViewModel.ToolIndex = 4; ViewModel.PitchOverwrite = false; return true;
+                case "ToolSelect4LineOverwrite": ViewModel.ToolIndex = 4; ViewModel.PitchOverwrite = true; return true;
+                case "ToolSelectSCurve": ViewModel.ToolIndex = 5; ViewModel.PitchOverwrite = false; return true;
+                case "ToolSelectSine": ViewModel.ToolIndex = 6; ViewModel.PitchOverwrite = false; return true;
+                case "ToolSelectSmoothen": ViewModel.ToolIndex = 7; ViewModel.PitchOverwrite = false; return true;
+                case "ToolSelect5": ViewModel.ToolIndex = 8; return true;
 
                 // Expressions
                 case "ExpSelect1": expSelector1?.SelectExp(); return true;
@@ -1597,6 +1659,7 @@ namespace OpenUtau.App.Controls {
                 case "Detach Piano Roll": OnMenuDetachPianoRoll(this, new RoutedEventArgs()); return true;
                 case "Hide Piano Roll": OnMenuHidePianoRoll(this, new RoutedEventArgs()); return true;
             }
+
             // External and batch note edits
             var allDynamicMenus = ViewModel.NoteBatchEdits
                 .Concat(ViewModel.LyricBatchEdits)

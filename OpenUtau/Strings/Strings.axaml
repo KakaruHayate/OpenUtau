@@ -1,6 +1,19 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:system="clr-namespace:System;assembly=mscorlib"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  
+  <system:String x:Key="button.apply">Apply</system:String>
+  <system:String x:Key="button.cancel">Cancel</system:String>
+  <system:String x:Key="button.no">No</system:String>
+  <system:String x:Key="button.off">Off</system:String>
+  <system:String x:Key="button.ok">Ok</system:String>
+  <system:String x:Key="button.on">On</system:String>
+  <system:String x:Key="button.open">Open</system:String>
+  <system:String x:Key="button.remove">Remove</system:String>
+  <system:String x:Key="button.reset">Reset</system:String>
+  <system:String x:Key="button.save">Save</system:String>
+  <system:String x:Key="button.select">Select</system:String>
+  <system:String x:Key="button.yes">Yes</system:String>
 
   <system:String x:Key="command.batch.lyric">Lyrics batch edit</system:String>
   <system:String x:Key="command.batch.note">Notes batch edit</system:String>
@@ -102,25 +115,19 @@ OpenUtau aims to be an open source editing environment for UTAU community, with 
   <system:String x:Key="dialogs.merge.caption">Merging Parts</system:String>
   <system:String x:Key="dialogs.merge.multitracks">Parts on different tracks cannot be merged.</system:String>
   <system:String x:Key="dialogs.splitpart.caption">Splitting Part</system:String>
-  <system:String x:Key="dialogs.splitpart.intheway">There are one or more note(s) overlapping with the playhead.
-Do you want to continue by splitting at the nearest position after current playhead with no notes in the way?</system:String>
+  <system:String x:Key="dialogs.splitpart.intheway">There are one or more note(s) overlapping with the playhead. Do you want to continue by splitting at the nearest position after current playhead with no notes in the way?</system:String>
   <system:String x:Key="dialogs.exportds.caption">Export DiffSinger Scripts</system:String>
   <system:String x:Key="dialogs.exportds.curves">Curves</system:String>
   <system:String x:Key="dialogs.exportds.pitch">Pitch (f0)</system:String>
   <system:String x:Key="dialogs.exportds.variance">Variance expressions</system:String>
   <system:String x:Key="dialogs.exportds.variance.hint">Enable DiffSinger Tensor Cache in Preferences to export variance curves.</system:String>
   <system:String x:Key="dialogs.exportds.notrendered">Please render all parts before exporting.</system:String>
-  <system:String x:Key="dialogs.messagebox.cancel">Cancel</system:String>
   <system:String x:Key="dialogs.messagebox.copy">Copy error to clipboard</system:String>
-  <system:String x:Key="dialogs.messagebox.no">No</system:String>
-  <system:String x:Key="dialogs.messagebox.ok">Ok</system:String>
-  <system:String x:Key="dialogs.messagebox.yes">Yes</system:String>
   <system:String x:Key="dialogs.noresampler.caption">No resampler</system:String>
   <system:String x:Key="dialogs.noresampler.message">No resampler! Put your favourite resampler exe or dll in the Resamplers folder and choose it in Preferences!</system:String>
   <system:String x:Key="dialogs.recovery">Previously, OpenUtau terminated abnormally. Click here to recover.</system:String>
   <system:String x:Key="dialogs.recovery.caption">Recovery project</system:String>
-  <system:String x:Key="dialogs.remaptimeaxis.message">This tool will change the tempo of the project without changing the actual positions and durations (in seconds) of notes.
-  New BPM:</system:String>
+  <system:String x:Key="dialogs.remaptimeaxis.message">This tool will change the tempo of the project without changing the actual positions and durations (in seconds) of notes. New BPM:</system:String>
   <system:String x:Key="dialogs.timesig.caption">Time Signature</system:String>
   <system:String x:Key="dialogs.tracksettings.caption">Track Settings</system:String>
   <system:String x:Key="dialogs.tracksettings.location">Location</system:String>
@@ -202,7 +209,6 @@ Do you want to continue by splitting at the nearest position after current playh
   <system:String x:Key="exesetup.wavtool">Install as wavtool</system:String>
 
   <system:String x:Key="exps.abbr">Abbreviation</system:String>
-  <system:String x:Key="exps.apply">Apply</system:String>
   <system:String x:Key="exps.caption">Expressions</system:String>
   <system:String x:Key="exps.defaultvalue">Default</system:String>
   <system:String x:Key="exps.flag">Resampler Flag</system:String>
@@ -242,13 +248,10 @@ Do you want to continue by splitting at the nearest position after current playh
   <system:String x:Key="languages.zh">Chinese</system:String>
   <system:String x:Key="languages.zh-yue">Cantonese</system:String>
 
-  <system:String x:Key="lyrics.apply">Apply</system:String>
   <system:String x:Key="lyrics.applyselected">Apply only to selected notes</system:String>
-  <system:String x:Key="lyrics.cancel">Cancel</system:String>
   <system:String x:Key="lyrics.caption">Edit Lyrics</system:String>
   <system:String x:Key="lyrics.livepreview">Live preview</system:String>
   <system:String x:Key="lyrics.nonote">There is no note!</system:String>
-  <system:String x:Key="lyrics.reset">Reset</system:String>
   <system:String x:Key="lyrics.selectnotes">Select some notes first!</system:String>
   <system:String x:Key="lyrics.separators">Separators</system:String>
 
@@ -339,8 +342,7 @@ Do you want to continue by splitting at the nearest position after current playh
   <system:String x:Key="mergevoicebank.selectsinger">This tool will merge another voicebank into current voicebank as new voice colors.
 Choose the voicebank that you want to merge into current voicebank</system:String>
   <system:String x:Key="mergevoicebank.setfolder">Set new names for copied folders.</system:String>
-  <system:String x:Key="mergevoicebank.setsubbank">Set new prefix and suffix for subbanks.
-Syntax: prefix,suffix</system:String>
+  <system:String x:Key="mergevoicebank.setsubbank">Set new prefix and suffix for subbanks. Syntax: prefix,suffix</system:String>
   <system:String x:Key="mergevoicebank.setvoicecolor">Set new names for voice colors (shown in CLR expression).</system:String>
   <system:String x:Key="mergevoicebank.title">Merge voicebanks</system:String>
 
@@ -352,13 +354,10 @@ Syntax: prefix,suffix</system:String>
   <system:String x:Key="notedefaults.portamento.start">Start</system:String>
   <system:String x:Key="notedefaults.preset">Preset</system:String>
   <system:String x:Key="notedefaults.preset.namenew">New Preset Name</system:String>
-  <system:String x:Key="notedefaults.preset.remove">Remove</system:String>
   <system:String x:Key="notedefaults.preset.remove.tooltip">Removes last applied preset.</system:String>
-  <system:String x:Key="notedefaults.preset.save">Save</system:String>
   <system:String x:Key="notedefaults.preset.save.tooltip">Save current settings to a new preset.</system:String>
   <system:String x:Key="notedefaults.reset">Reset All Settings</system:String>
-  <system:String x:Key="notedefaults.reset.tooltip">Reset every setting to default values.
-Warning: this option removes custom presets.</system:String>
+  <system:String x:Key="notedefaults.reset.tooltip">Reset every setting to default values. Warning: this option removes custom presets.</system:String>
   <system:String x:Key="notedefaults.vibrato">Vibrato</system:String>
   <system:String x:Key="notedefaults.vibrato.autominlength">Minimum Length</system:String>
   <system:String x:Key="notedefaults.vibrato.autotoggle">Automatic Vibrato by Length</system:String>
@@ -372,9 +371,7 @@ Warning: this option removes custom presets.</system:String>
   <system:String x:Key="notedefaults.vibrato.vollink">Volume Link</system:String>
 
   <system:String x:Key="noteproperty">Note Properties</system:String>
-  <system:String x:Key="noteproperty.apply">Apply</system:String>
   <system:String x:Key="noteproperty.basic">Basic</system:String>
-  <system:String x:Key="noteproperty.cancel">Cancel</system:String>
   <system:String x:Key="noteproperty.set">Set</system:String>
   <system:String x:Key="noteproperty.setlongnote">Set only on long notes</system:String>
   <system:String x:Key="noteproperty.tone">Tone</system:String>
@@ -508,11 +505,30 @@ Warning: this option removes custom presets.</system:String>
   <system:String x:Key="pianoroll.toggle.snap">Toggle Snap</system:String>
   <system:String x:Key="pianoroll.toggle.snap.auto">Auto</system:String>
   <system:String x:Key="pianoroll.toggle.snap.autotriplet">Auto (triplet)</system:String>
+  <system:String x:Key="pianoroll.toggle.phonemizer">View Phonemizer Tags</system:String>
   <system:String x:Key="pianoroll.toggle.tips">View Tips</system:String>
   <system:String x:Key="pianoroll.toggle.tone">Toggle Note Tone</system:String>
   <system:String x:Key="pianoroll.toggle.vibrato">View Vibrato</system:String>
   <system:String x:Key="pianoroll.toggle.waveform">View Waveform</system:String>
   <system:String x:Key="pianoroll.toggle.expressions">View Expressions</system:String>
+
+  <system:String x:Key="pianoroll.tool.pitchline">Line Pitch Tool
+    Left click to draw
+    Right click to reset
+    Hold Ctrl to select</system:String>
+  <system:String x:Key="pianoroll.tool.pitchscurve">S-Curve Pitch Tool
+    Left click to draw
+    Right click to reset
+    Hold Ctrl to select</system:String>
+  <system:String x:Key="pianoroll.tool.pitchesinewave">Sine Wave Pitch Tool
+    Left click to draw
+    Right click to reset
+    Hold Ctrl to select</system:String>
+  <system:String x:Key="pianoroll.tool.pitchsmoothen">Smoothen Pitch Tool
+    Left click to smoothen
+    Right click to reset
+    Hold Ctrl to select</system:String>
+
   <system:String x:Key="pianoroll.tool.drawlinepitch">Line Draw Pitch Tool
     Left click to draw (draw straight line)
     Right click to reset
@@ -530,17 +546,14 @@ Warning: this option removes custom presets.</system:String>
     Right click to reset
     Hold Ctrl to select
     Hold Alt to smoothen</system:String>
-  <system:String x:Key="pianoroll.tool.overwritelinepitch">
-    Line Draw Pitch Tool
-    Left click to draw 
-    (draw straight line overwrites the vibrato or mod+)
+  <system:String x:Key="pianoroll.tool.overwritelinepitch">Overwrite Line Pitch Tool
+    Left click to draw (draw straight line overwrites the vibrato or mod+)
     Hold Ctrl to draw sine curve
     Hold Alt + Shift to tune S-curve
     Hold Alt to draw S-curve
     Right click to reset
     Hold Ctrl to select
-    Hold Alt to smoothen
-  </system:String>
+    Hold Alt to smoothen</system:String>
   <system:String x:Key="pianoroll.tool.penplus">Pen Plus Tool
     Left click to draw
     Right click to delete
@@ -583,6 +596,9 @@ Warning: this option removes custom presets.</system:String>
   <system:String x:Key="shortcut.ToolSelect4Overwrite">Overwrite Pitch Tool</system:String>
   <system:String x:Key="shortcut.ToolSelect4Line">Draw Line Pitch Tool</system:String>
   <system:String x:Key="shortcut.ToolSelect4LineOverwrite">Overwrite Line Pitch Tool</system:String>
+  <system:String x:Key="shortcut.ToolSelectSCurve">S-Curve Pitch Tool</system:String>
+  <system:String x:Key="shortcut.ToolSelectSine">Sine Wave Pitch Tool</system:String>
+  <system:String x:Key="shortcut.ToolSelectSmoothen">Smoothen Pitch Tool</system:String>
   <system:String x:Key="shortcut.ToolSelect5">Knife Tool</system:String>
   <system:String x:Key="shortcut.ExpSelect1">Select Expression 1</system:String>
   <system:String x:Key="shortcut.ExpSelect2">Select Expression 2</system:String>
@@ -680,8 +696,6 @@ Warning: this option removes custom presets.</system:String>
   <system:String x:Key="prefs.editing">Editing</system:String>
   <system:String x:Key="prefs.general">General</system:String>
   <system:String x:Key="prefs.note.restart">Note: please restart OpenUtau after changing this item.</system:String>
-  <system:String x:Key="prefs.off">Off</system:String>
-  <system:String x:Key="prefs.on">On</system:String>
   <system:String x:Key="prefs.otoeditor">Oto Editor</system:String>
   <system:String x:Key="prefs.otoeditor.select">Default Oto Editor</system:String>
   <system:String x:Key="prefs.otoeditor.setparampath">setParam Path</system:String>
@@ -690,13 +704,11 @@ Warning: this option removes custom presets.</system:String>
   <system:String x:Key="prefs.paths.addlsinger.install">Install to Additional Singer Path</system:String>
   <system:String x:Key="prefs.paths.detect">Detect</system:String>
   <system:String x:Key="prefs.paths.loaddeepfolders">Load all depth folders</system:String>
-  <system:String x:Key="prefs.paths.open">Open</system:String>
-  <system:String x:Key="prefs.paths.reset">Reset</system:String>
-  <system:String x:Key="prefs.paths.select">Select</system:String>
   <system:String x:Key="prefs.paths.singer">Singer Path</system:String>
   <system:String x:Key="prefs.playback">Playback</system:String>
   <system:String x:Key="prefs.playback.autoscroll">Auto-Scroll</system:String>
   <system:String x:Key="prefs.playback.autoscrollmode">Auto-Scroll Mode</system:String>
+  <system:String x:Key="prefs.playback.autoscrollmode.off">Off</system:String>
   <system:String x:Key="prefs.playback.autoscrollmode.pagescroll">Page Scroll</system:String>
   <system:String x:Key="prefs.playback.autoscrollmode.stationarycursor">Stationary Cursor</system:String>
   <system:String x:Key="prefs.playback.backend">Audio Backend</system:String>
@@ -750,8 +762,7 @@ Warning: this option removes custom presets.</system:String>
   <system:String x:Key="singererror.cutoffoverlap">Cutoff must be to the right of overlap.</system:String>
   <system:String x:Key="singererror.cutoffpreutter">Cutoff must be to the right of preutter.</system:String>
   <system:String x:Key="singererror.duplicatealias">There are duplicate aliases.{0}</system:String>
-  <system:String x:Key="singererror.duplicatename">Duplicated file names found when ignoreing case in oto set "{0}": {1}.
-The voicebank may not work on another OS with case-sensitivity.</system:String>
+  <system:String x:Key="singererror.duplicatename">Duplicated file names found when ignoreing case in oto set "{0}": {1}. The voicebank may not work on another OS with case-sensitivity.</system:String>
   <system:String x:Key="singererror.failedload">Failed to load voicebank.</system:String>
   <system:String x:Key="singererror.invalidduration">Invalid duration {0}.</system:String>
   <system:String x:Key="singererror.invalidoto">Invalid oto format.</system:String>
@@ -808,7 +819,6 @@ The voicebank may not work on another OS.</system:String>
   <system:String x:Key="singers.setimage">Set Icon</system:String>
   <system:String x:Key="singers.setportrait">Set Portrait</system:String>
   <system:String x:Key="singers.setsingertype">Set Singer Type</system:String>
-  <system:String x:Key="singers.subbanks.cancel">Cancel</system:String>
   <system:String x:Key="singers.subbanks.clear">Clear</system:String>
   <system:String x:Key="singers.subbanks.color">Color</system:String>
   <system:String x:Key="singers.subbanks.color.add">Add Color</system:String>
@@ -817,8 +827,6 @@ The voicebank may not work on another OS.</system:String>
   <system:String x:Key="singers.subbanks.edit">Edit Subbanks</system:String>
   <system:String x:Key="singers.subbanks.export">Export prefix.map</system:String>
   <system:String x:Key="singers.subbanks.import">Import prefix.map</system:String>
-  <system:String x:Key="singers.subbanks.reset">Reset</system:String>
-  <system:String x:Key="singers.subbanks.save">Save</system:String>
   <system:String x:Key="singers.subbanks.selectall">Select All</system:String>
   <system:String x:Key="singers.subbanks.set">Set</system:String>
   <system:String x:Key="singers.subbanks.tone">Tone</system:String>
@@ -838,6 +846,8 @@ The voicebank may not work on another OS.</system:String>
   <system:String x:Key="singersetup.textfileencoding">Text File Encoding</system:String>
   <system:String x:Key="singersetup.textfileencoding.prompt">Choose an encoding that make file contents look right.</system:String>
   <system:String x:Key="singersetup.title">Singer Setup</system:String>
+
+  <system:String x:Key="themeeditor.title">Theme Editor</system:String>
 
   <system:String x:Key="tip.aliasbox">Override Alias</system:String>
   <system:String x:Key="tip.exps">Numerical,Options Type
@@ -919,11 +929,6 @@ General
   <system:String x:Key="welcome.start">Start</system:String>
   <system:String x:Key="welcome.template">Template</system:String>
 
-  <system:String x:Key="themeeditor.title">Theme Editor</system:String>
-  <system:String x:Key="themeeditor.save">Save</system:String>
-  <system:String x:Key="themeeditor.cancel">Cancel</system:String>
-
-  <!-- Mix Effects (post-processing) -->
   <system:String x:Key="mixfx.caption">Track Polish</system:String>
   <system:String x:Key="mixfx.enabled">Enable on this track</system:String>
   <system:String x:Key="mixfx.preset">Preset</system:String>

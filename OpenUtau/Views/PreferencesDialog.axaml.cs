@@ -158,6 +158,7 @@ namespace OpenUtau.App.Views {
         }
 
         void OpenCustomThemeEditor(object sender, RoutedEventArgs e) {
+            if (CustomTheme.IsPackageTheme(viewModel!.ThemeName)) return;
             ThemeEditorWindow.Show(CustomTheme.Themes[viewModel!.ThemeName]);
         }
 
@@ -187,6 +188,7 @@ namespace OpenUtau.App.Views {
         }
 
         async void OnCustomThemeDelete(object sender, RoutedEventArgs e) {
+            if (CustomTheme.IsPackageTheme(viewModel!.ThemeName)) return;
             var result = await MessageBox.Show(
                 this,
                 ThemeManager.GetString("prefs.appearance.customtheme.delete.message"),

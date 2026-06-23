@@ -51,7 +51,14 @@ namespace OpenUtau.App.ViewModels {
                 new Preferences.ShortcutBinding("ToolSelect4Overwrite", ["Ctrl+D4"]),
                 new Preferences.ShortcutBinding("ToolSelect4Line", ["Shift+D4"]),
                 new Preferences.ShortcutBinding("ToolSelect4LineOverwrite", ["Ctrl+Shift+D4"]),
-                new Preferences.ShortcutBinding("ToolSelect5", ["D5"]),
+                
+                // New Pitch Curve Tools
+                new Preferences.ShortcutBinding("ToolSelectSCurve", ["D5"]),
+                new Preferences.ShortcutBinding("ToolSelectSine", ["Shift+D5"]),
+                new Preferences.ShortcutBinding("ToolSelectSmoothen", ["D6"]),
+                
+                // Knife Tool (Bumped to D7)
+                new Preferences.ShortcutBinding("ToolSelect5", ["D7"]),
 
                 // Expressions
                 new Preferences.ShortcutBinding("ExpSelect1", ["Alt+D1"]),
