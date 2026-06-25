@@ -584,21 +584,34 @@ namespace OpenUtau.Core.DiffSinger {
                 throw new Exception("Please enable DiffSinger tensor cache and re-render the phrase to display correct base curves.");
             }
             DiffSingerSinger singer = (DiffSingerSinger) phrase.singer;
-            if (!singer.HasVariancePredictor) {
-                return new List<RenderRealCurveResult>(0);
+            var results = new List<RenderRealCurveResult>();
+            if (singer.HasVariancePredictor) {
+                var variancePredictor = singer.getVariancePredictor()!;
+                lock (variancePredictor) {
+                    var result = variancePredictor.Process(phrase);
+                    results.AddRange(BuildRenderedRealCurves(phrase, result));
+                }
             }
-            var variancePredictor = singer.getVariancePredictor()!;
-            lock (variancePredictor) {
-                var result = variancePredictor.Process(phrase);
-                return BuildRenderedRealCurves(phrase, result);
+            // Add SHMC from OPEC extraction when available
+            if (Preferences.Default.OpecAutoExtract && OpecExtractor.IsInstalled()) {
+                try {
+                    // We don't have access to audio samples here, so this path
+                    // only applies during render-time extraction (handled in RenderEngine).
+                    // For manual refresh, we return the variance curves only.
+                    // OPEC extraction from audio is done post-render in RenderEngine.
+                } catch (Exception e) {
+                    Log.Debug(e, "Failed to extract OPEC for real curve refresh.");
+                }
             }
+            return results;
         }
 
         internal static bool ShouldRefreshRealCurvesOnCurveEdit(string abbr) {
             return abbr == ENE ||
                 abbr == Format.Ustx.BREC ||
                 abbr == Format.Ustx.VOIC ||
-                abbr == Format.Ustx.TENC;
+                abbr == Format.Ustx.TENC ||
+                abbr == DiffSingerUtils.SHMC;
         }
 
         private List<RenderRealCurveResult> BuildRenderedRealCurves(RenderPhrase phrase, VarianceResult result) {

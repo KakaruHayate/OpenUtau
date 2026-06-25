@@ -216,6 +216,7 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public bool DiffSingerLangCodeHide { get; set; }
         [Reactive] public bool DiffSingerShowRenderPhraseBoundaries { get; set; }
         [Reactive] public bool DiffSingerLocalRetaking { get; set; }
+        [Reactive] public bool OpecAutoExtract { get; set; }
 
         // Advanced
         [Reactive] public bool RememberMid { get; set; }
@@ -280,6 +281,7 @@ namespace OpenUtau.App.ViewModels {
             DiffSingerLangCodeHide = Preferences.Default.DiffSingerLangCodeHide;
             DiffSingerShowRenderPhraseBoundaries = Preferences.Default.DiffSingerShowRenderPhraseBoundaries;
             DiffSingerLocalRetaking = Preferences.Default.DiffSingerLocalRetaking;
+            OpecAutoExtract = Preferences.Default.OpecAutoExtract;
             SkipRenderingMutedTracks = Preferences.Default.SkipRenderingMutedTracks;
             ThemeName = Preferences.Default.ThemeName;
             DegreeStyle = Preferences.Default.DegreeStyle;
@@ -513,6 +515,11 @@ namespace OpenUtau.App.ViewModels {
             this.WhenAnyValue(vm => vm.DiffSingerLocalRetaking)
                 .Subscribe(value => {
                     Preferences.Default.DiffSingerLocalRetaking = value;
+                    Preferences.Save();
+                });
+            this.WhenAnyValue(vm => vm.OpecAutoExtract)
+                .Subscribe(autoExtract => {
+                    Preferences.Default.OpecAutoExtract = autoExtract;
                     Preferences.Save();
                 });
             this.WhenAnyValue(vm => vm.SkipRenderingMutedTracks)

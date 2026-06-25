@@ -7,6 +7,7 @@ using OpenUtau.Core.SignalChain;
 using OpenUtau.Core.Ustx;
 using OpenUtau.Core.Util;
 using OpenUtau.Classic;
+using OpenUtau.Core.DiffSinger;
 using Serilog;
 
 namespace OpenUtau.Core.Render {
@@ -285,6 +286,31 @@ namespace OpenUtau.Core.Render {
                 }
                 var result = task.Result;
                 source.SetSamples(result.samples);
+                // OPEC (SHMC background curve) auto-extraction
+                if (Preferences.Default.OpecAutoExtract &&
+                    result.samples != null && result.samples.Length > 0 &&
+                    phrase.renderer is DiffSingerRenderer) {
+                    var capturedPhrase = phrase;
+                    var capturedPart = request.part;
+                    var capturedSamples = result.samples;
+                    var capturedCancellation = cancellation;
+                    Task.Run(() => {
+                        try {
+                            var opecResult = OpecExtractor.Extract(
+                                capturedPhrase, capturedSamples, capturedCancellation.Token);
+                            if (opecResult != null) {
+                                var updates = RealCurveUpdater.BuildUpdates(
+                                    capturedPart, capturedPhrase, new[] { opecResult });
+                                if (updates.Length > 0) {
+                                    DocManager.Inst.ExecuteCmd(
+                                        new RealCurvesUpdatedNotification(capturedPart, updates));
+                                }
+                            }
+                        } catch (Exception e) {
+                            Log.Debug(e, "OPEC extraction failed silently.");
+                        }
+                    });
+                }
                 if (publishedUpdates == null) {
                     publishedUpdates = PublishRealCurveUpdates(request.part, phrase);
                 }

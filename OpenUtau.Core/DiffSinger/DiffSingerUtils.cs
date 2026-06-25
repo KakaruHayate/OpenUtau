@@ -23,6 +23,7 @@ namespace OpenUtau.Core.DiffSinger {
                 {Format.Ustx.BREC, (x, y) => x + y * 12 / 100},
                 {Format.Ustx.VOIC, (x, y) => x + (y - 100) * 12 / 100},
                 {Format.Ustx.TENC, (x, y) => x + y / 20},
+                {SHMC, (x, y) => x + y * 12 / 100},
             };
 
         public static float GetHeadMs(double frameMs) {
