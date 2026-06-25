@@ -289,11 +289,35 @@ namespace OpenUtau.App.ViewModels {
 
         public static KeyGesture StringToGesture(string shortcut) {
             try {
-                var gesture = KeyGesture.Parse(shortcut);
+                // Normalize macOS glyph tokens to ASCII names before parsing
+                // so that both "⌃+A" and "Ctrl+A" work on any platform.
+                var normalized = NormalizeModifierTokens(shortcut);
+                var gesture = KeyGesture.Parse(normalized);
                 return GestureConverter(gesture);
             } catch {
                 return new KeyGesture(Key.None);
             }
+        }
+
+        /// <summary>
+        /// Normalize modifier glyphs and synonyms to canonical names
+        /// that KeyGesture.Parse understands on any platform.
+        /// </summary>
+        private static string NormalizeModifierTokens(string input) {
+            if (string.IsNullOrWhiteSpace(input)) {
+                return input;
+            }
+            // macOS glyphs → ASCII names
+            input = input.Replace("⌃", "Ctrl");
+            input = input.Replace("⌘", "Meta");
+            input = input.Replace("⇧", "Shift");
+            input = input.Replace("⌥", "Alt");
+            input = input.Replace("⎋", "Esc");
+            // Synonyms
+            input = input.Replace("Option", "Alt");
+            input = input.Replace("Command", "Meta");
+            input = input.Replace("Cmd", "Meta");
+            return input;
         }
         public static string GestureToString(KeyGesture gesture) {
             return GestureConverter(gesture).ToString();

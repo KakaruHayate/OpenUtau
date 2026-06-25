@@ -153,15 +153,15 @@ namespace OpenUtau.App.ViewModels {
         public void GetFriendlyModifiersName_Control_ReturnsCtrl() {
             var result = KeyTranslator.GetFriendlyModifiersName(KeyModifiers.Control);
             // On non-Mac: "Ctrl"; on Mac: "⌃"
-            Assert.Contains("Ctrl", result);
+            Assert.True(result.Contains("Ctrl") || result.Contains("⌃"));
         }
 
         [Fact]
         public void GetFriendlyModifiersName_Combined_ReturnsJoined() {
             var result = KeyTranslator.GetFriendlyModifiersName(KeyModifiers.Control | KeyModifiers.Shift);
             // On non-Mac: "Ctrl + Shift"; on Mac: "⌃ ⇧"
-            Assert.Contains("Ctrl", result);
-            Assert.Contains("Shift", result);
+            Assert.True(result.Contains("Ctrl") || result.Contains("⌃"));
+            Assert.True(result.Contains("Shift") || result.Contains("⇧"));
         }
 
         // ==================== StringToGesture ====================
@@ -231,7 +231,8 @@ namespace OpenUtau.App.ViewModels {
         [Fact]
         public void GetFriendlyName_KeyAndModifiers_WithCtrl() {
             var name = KeyTranslator.GetFriendlyName(Key.A, KeyModifiers.Control);
-            Assert.Contains("Ctrl", name);
+            // On non-Mac: "Ctrl + A"; on Mac: "⌃ A"
+            Assert.True(name.Contains("Ctrl") || name.Contains("⌃"));
             Assert.Contains("A", name);
         }
 
