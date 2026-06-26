@@ -18,7 +18,7 @@ namespace OpenUtau.Core.DiffSinger {
         /// <summary>
         /// Package ID for the OPEC model in Dependencies.
         /// </summary>
-        public const string PackageId = "opec";
+        public const string PackageId = "r3moe";
 
         /// <summary>
         /// ONNX model file name inside the package.

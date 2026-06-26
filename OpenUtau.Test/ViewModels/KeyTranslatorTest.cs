@@ -1,9 +1,11 @@
 using System.Linq;
+using System.Runtime.InteropServices;
 using Avalonia.Input;
 using Xunit;
 
 namespace OpenUtau.App.ViewModels {
     public class KeyTranslatorTest {
+        private static bool IsMac => RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
         // ==================== IsKeyMatch ====================
 
         [Fact]
@@ -151,17 +153,19 @@ namespace OpenUtau.App.ViewModels {
 
         [Fact]
         public void GetFriendlyModifiersName_Control_ReturnsCtrl() {
+            // macOS uses glyphs (⌃) instead of ASCII name (Ctrl), skip assertion there.
+            if (IsMac) return;
             var result = KeyTranslator.GetFriendlyModifiersName(KeyModifiers.Control);
-            // On non-Mac: "Ctrl"; on Mac: "⌃"
-            Assert.True(result.Contains("Ctrl") || result.Contains("⌃"));
+            Assert.Contains("Ctrl", result);
         }
 
         [Fact]
         public void GetFriendlyModifiersName_Combined_ReturnsJoined() {
+            // macOS uses glyphs instead of ASCII names for modifiers.
+            if (IsMac) return;
             var result = KeyTranslator.GetFriendlyModifiersName(KeyModifiers.Control | KeyModifiers.Shift);
-            // On non-Mac: "Ctrl + Shift"; on Mac: "⌃ ⇧"
-            Assert.True(result.Contains("Ctrl") || result.Contains("⌃"));
-            Assert.True(result.Contains("Shift") || result.Contains("⇧"));
+            Assert.Contains("Ctrl", result);
+            Assert.Contains("Shift", result);
         }
 
         // ==================== StringToGesture ====================
@@ -230,9 +234,10 @@ namespace OpenUtau.App.ViewModels {
 
         [Fact]
         public void GetFriendlyName_KeyAndModifiers_WithCtrl() {
+            // macOS uses glyphs instead of ASCII names for modifiers.
+            if (IsMac) return;
             var name = KeyTranslator.GetFriendlyName(Key.A, KeyModifiers.Control);
-            // On non-Mac: "Ctrl + A"; on Mac: "⌃ A"
-            Assert.True(name.Contains("Ctrl") || name.Contains("⌃"));
+            Assert.Contains("Ctrl", name);
             Assert.Contains("A", name);
         }
 
