@@ -5,7 +5,6 @@ using System.Threading;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using OpenUtau.Core.Render;
-using OpenUtau.Core.Ustx;
 using OpenUtau.Core.Util;
 using Serilog;
 
@@ -131,12 +130,32 @@ namespace OpenUtau.Core.DiffSinger {
                     return null;
                 }
 
-                // Smooth the curve
+                /// The OPEC model's output frames cover the full input audio,
+                /// but we don't know the exact hop ratio — the model may have
+                /// internal striding.  Instead of assuming a frameMs value that
+                /// matches the DiffSinger acoustic model (which is different from
+                /// OPEC's internal frame rate), interpolate the curve evenly
+                /// across the audio time span.
+                ///
+                /// The audio covers roughly:
+                ///   [phrase.position, phrase.position + audioDuration]
+                /// We widen slightly to include DiffSinger's leading/trailing
+                /// padding so the real curve overlaps the displayed note range.
+
+                // Smooth BEFORE interpolation to avoid aliasing of the
+                // smoothed shape when down- or up-sampling.
                 var smoothed = SinusoidalSmoother.Smooth(curve);
 
-                // Convert frames to ticks
-                float frameMs = (float)HopSize / SampleRate * 1000f; // ~11.61ms
-                float[] ticks = FramesToTicks(phrase, smoothed.Length, frameMs);
+                // Convert frames to phrase-relative ticks.
+                // Audio duration = samples.Length / SampleRate seconds.
+                double audioDurationMs = (double)samples.Length / SampleRate * 1000.0;
+                float[] ticks = new float[smoothed.Length];
+                for (int i = 0; i < smoothed.Length; i++) {
+                    double fraction = (double)i / smoothed.Length;
+                    double frameTimeMs = phrase.positionMs + fraction * audioDurationMs;
+                    double absTick = phrase.timeAxis.MsPosToTickPos(frameTimeMs);
+                    ticks[i] = (float)(absTick - phrase.position);
+                }
 
                 return new RenderRealCurveResult {
                     abbr = "shmc",
@@ -147,23 +166,6 @@ namespace OpenUtau.Core.DiffSinger {
                 Log.Debug(ex, "OPEC extraction failed.");
                 return null;
             }
-        }
-
-        /// <summary>
-        /// Convert OPEC frame indices to phrase-relative tick positions.
-        /// The audio starts at (phrase.positionMs - phrase.leadingMs) because of
-        /// DiffSinger's leading padding. Frame time = hopSize / sampleRate * 1000 ms.
-        /// </summary>
-        private static float[] FramesToTicks(RenderPhrase phrase, int frameCount, float frameMs) {
-            double audioStartMs = phrase.positionMs - DiffSingerUtils.GetHeadMs(frameMs);
-            float[] ticks = new float[frameCount];
-            double timeAxisStartMs = phrase.timeAxis.MsPosToTickPos(audioStartMs);
-            for (int i = 0; i < frameCount; i++) {
-                double frameTimeMs = audioStartMs + i * frameMs;
-                double absTick = phrase.timeAxis.MsPosToTickPos(frameTimeMs);
-                ticks[i] = (float)(absTick - phrase.position);
-            }
-            return ticks;
         }
 
         /// <summary>
