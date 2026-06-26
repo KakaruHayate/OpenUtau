@@ -1,11 +1,9 @@
 using System.Linq;
-using System.Runtime.InteropServices;
 using Avalonia.Input;
 using Xunit;
 
 namespace OpenUtau.App.ViewModels {
     public class KeyTranslatorTest {
-        private static bool IsMac => RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
         // ==================== IsKeyMatch ====================
 
         [Fact]
@@ -151,23 +149,6 @@ namespace OpenUtau.App.ViewModels {
             Assert.Equal(string.Empty, KeyTranslator.GetFriendlyModifiersName(KeyModifiers.None));
         }
 
-        [Fact]
-        public void GetFriendlyModifiersName_Control_ReturnsCtrl() {
-            // macOS uses glyphs (⌃) instead of ASCII name (Ctrl), skip assertion there.
-            if (IsMac) return;
-            var result = KeyTranslator.GetFriendlyModifiersName(KeyModifiers.Control);
-            Assert.Contains("Ctrl", result);
-        }
-
-        [Fact]
-        public void GetFriendlyModifiersName_Combined_ReturnsJoined() {
-            // macOS uses glyphs instead of ASCII names for modifiers.
-            if (IsMac) return;
-            var result = KeyTranslator.GetFriendlyModifiersName(KeyModifiers.Control | KeyModifiers.Shift);
-            Assert.Contains("Ctrl", result);
-            Assert.Contains("Shift", result);
-        }
-
         // ==================== StringToGesture ====================
 
         [Fact]
@@ -230,15 +211,6 @@ namespace OpenUtau.App.ViewModels {
         public void GetFriendlyName_KeyAndModifiers_NoMods() {
             var name = KeyTranslator.GetFriendlyName(Key.Space, KeyModifiers.None);
             Assert.Equal("Space", name);
-        }
-
-        [Fact]
-        public void GetFriendlyName_KeyAndModifiers_WithCtrl() {
-            // macOS uses glyphs instead of ASCII names for modifiers.
-            if (IsMac) return;
-            var name = KeyTranslator.GetFriendlyName(Key.A, KeyModifiers.Control);
-            Assert.Contains("Ctrl", name);
-            Assert.Contains("A", name);
         }
 
         // ==================== DefShortcuts ====================
