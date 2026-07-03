@@ -103,7 +103,11 @@ namespace OpenUtau.App.ViewModels {
             // Load GAME config (no model sessions) to populate options
             GameConfig? gameConfig = null;
             if (GameAvailable) {
-                gameConfig = Game.LoadConfig();
+                try {
+                    gameConfig = Game.LoadConfig();
+                } catch {
+                    GameAvailable = false;
+                }
             }
 
             GameHasLanguages = (gameConfig?.Languages?.Count ?? 0) > 0;
