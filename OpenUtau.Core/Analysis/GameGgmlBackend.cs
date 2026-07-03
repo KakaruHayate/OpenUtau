@@ -112,7 +112,9 @@ public class GameGgmlBackend : IGameBackend {
             throw new InvalidOperationException(
                 $"GAME GGML backend is missing config.json at {configPath}");
         }
-        GameConfig config = Game.LoadConfig(configPath);
+        var jsonText = File.ReadAllText(configPath, System.Text.Encoding.UTF8);
+        GameConfig config = System.Text.Json.JsonSerializer.Deserialize<GameConfig>(jsonText)
+            ?? throw new InvalidOperationException("Failed to parse GAME config.json");
         return new GameGgmlBackend(config, cli, gguf);
     }
 
