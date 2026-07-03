@@ -28,7 +28,8 @@ namespace OpenUtau.Core.Analysis;
 /// </summary>
 public class GameGgmlBackend : IGameBackend {
     private const string PackageId = "game";
-    private const string CliPackageId = "game-ggml-cli";
+    // Single oudep package contains both the CLI binary and the GGUF weights.
+    private const string GgmlPackageId = "game-ggml-medium";
 
     // Must match serv_proto::MAGIC_INFERENCE / MAGIC_QUIT in src/cli/main.cpp.
     private const uint MAGIC_INFERENCE = 0x53455256u;  // "VRES"
@@ -58,25 +59,33 @@ public class GameGgmlBackend : IGameBackend {
     public static string? ResolveCliPath() {
         string dep = PathManager.Inst.DependencyPath;
         string exeName = OS.IsWindows() ? "game_ggml_cli.exe" : "game_ggml_cli";
-        // First: dedicated oudep package directory.
-        string cliDir = Path.Combine(dep, CliPackageId);
+        // The game-ggml-medium oudep package ships the CLI under its root.
+        string cliDir = Path.Combine(dep, GgmlPackageId);
         string exe = Path.Combine(cliDir, exeName);
-        if (File.Exists(exe)) return exe;
-        // Fallback: a shared bin directory.
-        string binDir = Path.Combine(dep, "bin");
-        exe = Path.Combine(binDir, exeName);
         if (File.Exists(exe)) return exe;
         return null;
     }
 
-    /// <summary>Locate the first .gguf weight file inside the GAME dependency package.</summary>
+    /// <summary>Locate the first .gguf weight file. Checks the dedicated
+    /// game-ggml-medium package first, then falls back to the shared game
+    /// package (so GGUF weights can coexist alongside the ONNX .onnx files).</summary>
     public static string? ResolveGgufPath(string? location = null) {
-        location ??= PackageManager.Inst.GetInstalledPath(PackageId);
-        if (location == null) return null;
-        var gguf = Directory.GetFiles(location, "*.gguf")
-            .OrderByDescending(f => new FileInfo(f).Length)  // prefer the largest (likely medium > small)
-            .FirstOrDefault();
-        return gguf;
+        // 1. Preferred: dedicated ggml package (oudep installs to DependencyPath/game-ggml-medium)
+        string ggmlDir = Path.Combine(PathManager.Inst.DependencyPath, GgmlPackageId);
+        if (Directory.Exists(ggmlDir)) {
+            var gguf = Directory.GetFiles(ggmlDir, "*.gguf")
+                .OrderByDescending(f => new FileInfo(f).Length)
+                .FirstOrDefault();
+            if (gguf != null) return gguf;
+        }
+        // 2. Fallback: shared game package (for users who placed GGUF alongside ONNX files)
+        string? gameLoc = location ?? PackageManager.Inst.GetInstalledPath(PackageId);
+        if (gameLoc != null && Directory.Exists(gameLoc)) {
+            return Directory.GetFiles(gameLoc, "*.gguf")
+                .OrderByDescending(f => new FileInfo(f).Length)
+                .FirstOrDefault();
+        }
+        return null;
     }
 
     /// <summary>True when both the CLI binary and a GGUF weight package are installed.</summary>
