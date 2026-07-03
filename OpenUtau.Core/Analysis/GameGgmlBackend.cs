@@ -104,7 +104,15 @@ public class GameGgmlBackend : IGameBackend {
             throw new InvalidOperationException(
                 "GAME GGML backend is not installed: missing CLI binary or .gguf weights.");
         }
-        GameConfig config = Game.LoadConfig();
+        // Load config from the GGML package dir (Dependencies/game-ggml-medium/),
+        // not the ONNX package dir — they are independent oudep packages.
+        string ggmlDir = Path.GetDirectoryName(gguf)!;
+        string configPath = Path.Combine(ggmlDir, "config.json");
+        if (!File.Exists(configPath)) {
+            throw new InvalidOperationException(
+                $"GAME GGML backend is missing config.json at {configPath}");
+        }
+        GameConfig config = Game.LoadConfig(configPath);
         return new GameGgmlBackend(config, cli, gguf);
     }
 
