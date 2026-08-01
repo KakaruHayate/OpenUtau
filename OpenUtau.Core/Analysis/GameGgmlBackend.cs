@@ -48,6 +48,7 @@ public class GameGgmlBackend : IGameBackend {
     volatile bool stopping = false;
 
     public string Name => "GGML";
+    public GameConfig Config => config;
 
     private GameGgmlBackend(GameConfig config, string cliPath, string ggufPath) {
         this.config = config;
@@ -66,31 +67,50 @@ public class GameGgmlBackend : IGameBackend {
         return null;
     }
 
-    /// <summary>Locate the first .gguf weight file. Checks the dedicated
-    /// game-ggml-medium package first, then falls back to the shared game
-    /// package (so GGUF weights can coexist alongside the ONNX .onnx files).</summary>
+    /// <summary>Locate the largest .gguf weight file. An explicit location is
+    /// honored first; otherwise checks the dedicated game-ggml-medium package,
+    /// then the shared game package for backward compatibility.</summary>
     public static string? ResolveGgufPath(string? location = null) {
-        // 1. Preferred: dedicated ggml package (oudep installs to DependencyPath/game-ggml-medium)
+        if (location != null) {
+            return FindLargestGguf(location);
+        }
         string ggmlDir = Path.Combine(PathManager.Inst.DependencyPath, GgmlPackageId);
-        if (Directory.Exists(ggmlDir)) {
-            var gguf = Directory.GetFiles(ggmlDir, "*.gguf")
-                .OrderByDescending(f => new FileInfo(f).Length)
-                .FirstOrDefault();
-            if (gguf != null) return gguf;
-        }
-        // 2. Fallback: shared game package (for users who placed GGUF alongside ONNX files)
-        string? gameLoc = location ?? PackageManager.Inst.GetInstalledPath(PackageId);
-        if (gameLoc != null && Directory.Exists(gameLoc)) {
-            return Directory.GetFiles(gameLoc, "*.gguf")
-                .OrderByDescending(f => new FileInfo(f).Length)
-                .FirstOrDefault();
-        }
-        return null;
+        string? gguf = FindLargestGguf(ggmlDir);
+        if (gguf != null) return gguf;
+
+        string? gameLoc = PackageManager.Inst.GetInstalledPath(PackageId);
+        return gameLoc == null ? null : FindLargestGguf(gameLoc);
     }
 
-    /// <summary>True when both the CLI binary and a GGUF weight package are installed.</summary>
+    private static string? FindLargestGguf(string directory) {
+        if (!Directory.Exists(directory)) return null;
+        return Directory.GetFiles(directory, "*.gguf")
+            .OrderByDescending(f => new FileInfo(f).Length)
+            .FirstOrDefault();
+    }
+
+    /// <summary>True when the CLI, GGUF weights and backend config are installed.</summary>
     public static bool IsInstalled(string? location = null) {
-        return ResolveCliPath() != null && ResolveGgufPath(location) != null;
+        string? gguf = ResolveGgufPath(location);
+        return ResolveCliPath() != null &&
+            gguf != null &&
+            File.Exists(Path.Combine(Path.GetDirectoryName(gguf)!, "config.json"));
+    }
+
+    /// <summary>Load config.json next to the GGUF weights.</summary>
+    public static GameConfig LoadConfig(string? location = null) {
+        string? gguf = ResolveGgufPath(location);
+        if (gguf == null) {
+            throw new InvalidOperationException("GAME GGML backend is missing .gguf weights.");
+        }
+        string configPath = Path.Combine(Path.GetDirectoryName(gguf)!, "config.json");
+        if (!File.Exists(configPath)) {
+            throw new InvalidOperationException(
+                $"GAME GGML backend is missing config.json at {configPath}");
+        }
+        var jsonText = File.ReadAllText(configPath, Encoding.UTF8);
+        return JsonSerializer.Deserialize<GameConfig>(jsonText)
+            ?? throw new InvalidOperationException("Failed to parse GAME config.json");
     }
 
     /// <summary>
@@ -104,18 +124,7 @@ public class GameGgmlBackend : IGameBackend {
             throw new InvalidOperationException(
                 "GAME GGML backend is not installed: missing CLI binary or .gguf weights.");
         }
-        // Load config from the GGML package dir (Dependencies/game-ggml-medium/),
-        // not the ONNX package dir — they are independent oudep packages.
-        string ggmlDir = Path.GetDirectoryName(gguf)!;
-        string configPath = Path.Combine(ggmlDir, "config.json");
-        if (!File.Exists(configPath)) {
-            throw new InvalidOperationException(
-                $"GAME GGML backend is missing config.json at {configPath}");
-        }
-        var jsonText = File.ReadAllText(configPath, System.Text.Encoding.UTF8);
-        GameConfig config = System.Text.Json.JsonSerializer.Deserialize<GameConfig>(jsonText)
-            ?? throw new InvalidOperationException("Failed to parse GAME config.json");
-        return new GameGgmlBackend(config, cli, gguf);
+        return new GameGgmlBackend(LoadConfig(), cli, gguf);
     }
 
     public bool EnsureLoaded() {

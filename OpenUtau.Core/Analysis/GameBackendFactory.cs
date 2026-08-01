@@ -45,6 +45,23 @@ public static class GameBackendFactory {
     };
 
     /// <summary>
+    /// Load the configuration belonging to the backend that will actually be used.
+    /// This must not fall back to the ONNX package when only GGML is installed.
+    /// </summary>
+    public static GameConfig LoadResolvedConfig() {
+        string choice = ResolveChoice();
+        if (choice == OnnxValue) {
+            string location = PackageManager.Inst.GetInstalledPath("game")!;
+            return Game.LoadConfig(location);
+        }
+        if (choice == GgmlValue) {
+            return GameGgmlBackend.LoadConfig();
+        }
+        throw new InvalidOperationException(
+            "No GAME backend is installed. Install the GAME ONNX or GGML weights via the Package Manager.");
+    }
+
+    /// <summary>
     /// Construct the resolved backend and load its config from the installed
     /// GAME weights directory.
     /// </summary>
