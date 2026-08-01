@@ -18,6 +18,9 @@ public interface IGameBackend : IDisposable {
     /// <summary>Short display name for diagnostics ("ONNX", "GGML").</summary>
     string Name { get; }
 
+    /// <summary>Configuration loaded from this backend's own package.</summary>
+    GameConfig Config { get; }
+
     /// <summary>
     /// Load the model if not already loaded. Called lazily before the first
     /// inference. Returns true if the weights/executable are present and ready.

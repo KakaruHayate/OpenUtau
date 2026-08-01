@@ -30,6 +30,7 @@ public class GameOnnxBackend : IGameBackend {
     readonly string Location;
 
     public string Name => "ONNX";
+    public GameConfig Config => config;
 
     public GameOnnxBackend(GameConfig config, string location) {
         this.config = config;

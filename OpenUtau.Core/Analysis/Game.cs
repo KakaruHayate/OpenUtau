@@ -99,10 +99,7 @@ public class Game : MidiExtractor<GameOptions> {
             backend = new GameOnnxBackend(config, location);
         } else {
             backend = GameBackendFactory.Create();
-            string cfgLocation = PackageManager.Inst.GetInstalledPath(PackageId);
-            config = cfgLocation != null
-                ? LoadConfig(cfgLocation)
-                : new GameConfig();
+            config = backend.Config;
         }
         Log.Information("GAME: active backend = {Backend}", backend.Name);
     }
