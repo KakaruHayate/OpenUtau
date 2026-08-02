@@ -131,9 +131,9 @@ public class GameGgmlBackend : IGameBackend {
         if (process != null && !process.HasExited) return true;
 
         Log.Information("GAME(GGML): launching serve subprocess cli={Cli} gguf={Gguf}", cliPath, ggufPath);
+        EnsureExecutable(cliPath);
         var psi = new ProcessStartInfo {
             FileName = cliPath,
-            Arguments = $"serve \"{ggufPath}\"",
             UseShellExecute = false,
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
@@ -141,6 +141,8 @@ public class GameGgmlBackend : IGameBackend {
             CreateNoWindow = true,
             StandardOutputEncoding = Encoding.UTF8,
         };
+        psi.ArgumentList.Add("serve");
+        psi.ArgumentList.Add(ggufPath);
         process = Process.Start(psi)
             ?? throw new InvalidOperationException("Failed to start game_ggml_cli.");
         // Binary stdin: avoid a text writer wrapper to control framing exactly.
@@ -299,6 +301,19 @@ public class GameGgmlBackend : IGameBackend {
                 Log.Information("GAME(GGML)[stderr] {Line}", l);
             }
         });
+    }
+
+    private static void EnsureExecutable(string path) {
+        if (OS.IsWindows()) return;
+        const UnixFileMode executableMode =
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+            UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+            UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
+        try {
+            File.SetUnixFileMode(path, executableMode);
+        } catch (Exception e) {
+            Log.Warning(e, "GAME(GGML): failed to set executable permission on {Cli}", path);
+        }
     }
 
     // -------------------------------------------------------------------------

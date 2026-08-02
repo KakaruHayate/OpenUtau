@@ -207,11 +207,8 @@
             <ComboBox ItemsSource="{Binding OnnxGpuOptions}" SelectedItem="{Binding OnnxGpu}"/>
             <TextBlock Classes="restart"/>
           </StackPanel>
-          <!-- GAME backend selection -->
-          <TextBlock Text="GAME Inference Backend" Margin="0,14,0,0" FontWeight="Bold"/>
+          <TextBlock Text="{DynamicResource prefs.rendering.gamebackend}" Margin="0,10,0,0"/>
           <ComboBox ItemsSource="{Binding GameBackendOptions}" SelectedItem="{Binding GameBackend}"/>
-          <TextBlock Text="Restart transcription after switching."
-                     FontSize="11" Foreground="Gray" TextWrapping="Wrap" Margin="0,0,0,4"/>
         </StackPanel>
 
         <!-- Appearance -->

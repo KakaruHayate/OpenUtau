@@ -72,7 +72,9 @@ public class Game : MidiExtractor<GameOptions> {
     /// Check if any GAME backend is installed (ONNX or GGML) without loading models.
     /// </summary>
     public static bool IsInstalled(string? location = null) {
-        return GameBackendFactory.IsAnyInstalled();
+        return location != null
+            ? GameOnnxBackend.IsInstalled(location)
+            : GameBackendFactory.IsAnyInstalled();
     }
 
     /// <summary>
