@@ -167,6 +167,30 @@ namespace OpenUtau.Core.DiffSinger {
         }
 
         [Fact]
+        public void GetRetakeFrameRanges_SeparatesNonAdjacentRegions() {
+            var mask = new[] { false, true, true, false, false, true, true, false };
+
+            var ranges = DiffSingerRetake.GetRetakeFrameRanges(mask, mask.Length).ToArray();
+
+            Assert.Equal(new[] { (1, 3), (5, 7) }, ranges);
+        }
+
+        [Fact]
+        public void GetRetakeFrameRanges_NullMaskReturnsFullRange() {
+            var ranges = DiffSingerRetake.GetRetakeFrameRanges(null, 5).ToArray();
+
+            Assert.Equal(new[] { (0, 5) }, ranges);
+        }
+
+        [Fact]
+        public void GetRetakeFrameRanges_DoesNotTreatFramesPastMaskAsSelected() {
+            var ranges = DiffSingerRetake.GetRetakeFrameRanges(
+                new[] { false, true, true }, 6).ToArray();
+
+            Assert.Equal(new[] { (1, 3) }, ranges);
+        }
+
+        [Fact]
         public void BuildRetakeFrameMask_SegmentMarkedMinusOne_NeverRetakes() {
             // -1 in paddedToRealNoteIndex means "never retake this segment".
             var paddedDurations = new[] { 2, 3, 2, 4, 2 };
