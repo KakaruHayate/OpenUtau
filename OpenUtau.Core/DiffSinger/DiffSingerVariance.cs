@@ -35,7 +35,9 @@ namespace OpenUtau.Core.DiffSinger{
         IG2p g2p;
         float frameMs;
         DiffSingerSpeakerEmbedManager speakerEmbedManager;
-        readonly Dictionary<ulong, VariancePatchState> variancePatchStates = new Dictionary<ulong, VariancePatchState>();
+        const int VariancePatchStateCapacity = 16;
+        readonly VariancePatchStateCache variancePatchStates =
+            new VariancePatchStateCache(VariancePatchStateCapacity);
 
         public float FrameMs => frameMs;
 
@@ -273,15 +275,22 @@ namespace OpenUtau.Core.DiffSinger{
                 var baseHash = new DiffSingerCache(varianceHash, variancePatchInputs).Hash;
                 variancePatchKey = DiffSingerVariancePatch.BuildStateKey(baseHash, phrase.position, phrase.end);
             }
-            var fullVarianceCache = Preferences.Default.DiffSingerTensorCache
-                ? new DiffSingerCache(varianceHash, varianceInputs)
+            // Cache the final pipeline result in a separate namespace from raw predictor outputs.
+            var resultCacheInputs = new List<NamedOnnxValue>(varianceInputs) {
+                NamedOnnxValue.CreateFromTensor(
+                    "result_cache_version",
+                    new DenseTensor<long>(new long[] { 1 }, new int[] { 1 }, false)),
+            };
+            var resultCache = Preferences.Default.DiffSingerTensorCache
+                ? new DiffSingerCache(varianceHash, resultCacheInputs)
                 : null;
-            var fullVarianceOutputs = fullVarianceCache?.Load();
-            if (fullVarianceOutputs != null) {
-                var cachedResult = ParseVarianceResult(fullVarianceOutputs, frameMs, headFrames, tailFrames, totalFrames);
+            var cachedOutputs = resultCache?.Load();
+            if (cachedOutputs != null) {
+                var cachedResult = ParseVarianceResult(cachedOutputs, frameMs, headFrames, tailFrames, totalFrames);
                 if (variancePatchKey.HasValue) {
-                    variancePatchStates[variancePatchKey.Value] =
-                        new VariancePatchState(pitch, speakerEmbed, cachedResult);
+                    variancePatchStates.Set(
+                        variancePatchKey.Value,
+                        new VariancePatchState(pitch, speakerEmbed, cachedResult));
                 }
                 return cachedResult;
             }
@@ -293,12 +302,20 @@ namespace OpenUtau.Core.DiffSinger{
                     headFrames = headFrames,
                     tailFrames = tailFrames,
                     totalFrames = totalFrames,
-                })) {
+                }) &&
+                DiffSingerVariancePatch.IsChannelLayoutCompatible(
+                    cachedState.result,
+                    totalFrames,
+                    dsConfig.predict_energy,
+                    dsConfig.predict_breathiness,
+                    dsConfig.predict_voicing,
+                    dsConfig.predict_tension)) {
                 previous = cachedState;
                 var pitchMask = DiffSingerVariancePatch.BuildChangedFrameMask(cachedState.pitch, pitch, 1e-4f);
                 var speakerMask = DiffSingerVariancePatch.BuildChangedFrameMask(
                     cachedState.speakerEmbed ?? Array.Empty<float>(),
                     speakerEmbed ?? Array.Empty<float>(),
+                    totalFrames,
                     1e-4f);
                 retakeMask = new bool[totalFrames];
                 for (int i = 0; i < retakeMask.Length; i++) {
@@ -362,13 +379,14 @@ namespace OpenUtau.Core.DiffSinger{
                 var channelMask = DiffSingerVariancePatch.ExpandToChannels(retakeMask, numVariances);
                 result = DiffSingerVariancePatch.HardCompose(previous.result, result, channelMask, numVariances);
             }
-            if (fullVarianceCache != null) {
-                fullVarianceCache.Save(BuildVarianceOutputs(result));
-                phrase.AddCacheFile(fullVarianceCache.Filename);
+            if (resultCache != null) {
+                resultCache.Save(BuildVarianceOutputs(result));
+                phrase.AddCacheFile(resultCache.Filename);
             }
             if (variancePatchKey.HasValue) {
-                variancePatchStates[variancePatchKey.Value] =
-                    new VariancePatchState(pitch, speakerEmbed, result);
+                variancePatchStates.Set(
+                    variancePatchKey.Value,
+                    new VariancePatchState(pitch, speakerEmbed, result));
             }
             return result;
         }

@@ -15,6 +15,49 @@ namespace OpenUtau.Core.DiffSinger {
         }
     }
 
+    internal sealed class VariancePatchStateCache {
+        readonly int capacity;
+        readonly Dictionary<ulong, LinkedListNode<(ulong key, VariancePatchState state)>> entries = new();
+        readonly LinkedList<(ulong key, VariancePatchState state)> recency = new();
+
+        internal VariancePatchStateCache(int capacity) {
+            if (capacity <= 0) {
+                throw new ArgumentOutOfRangeException(nameof(capacity));
+            }
+            this.capacity = capacity;
+        }
+
+        internal int Count => entries.Count;
+
+        internal bool TryGetValue(ulong key, out VariancePatchState state) {
+            if (!entries.TryGetValue(key, out var node)) {
+                state = null!;
+                return false;
+            }
+            recency.Remove(node);
+            recency.AddFirst(node);
+            state = node.Value.state;
+            return true;
+        }
+
+        internal void Set(ulong key, VariancePatchState state) {
+            if (entries.TryGetValue(key, out var existing)) {
+                existing.Value = (key, state);
+                recency.Remove(existing);
+                recency.AddFirst(existing);
+                return;
+            }
+            var node = recency.AddFirst((key, state));
+            entries.Add(key, node);
+            if (entries.Count <= capacity) {
+                return;
+            }
+            var oldest = recency.Last!;
+            recency.RemoveLast();
+            entries.Remove(oldest.Value.key);
+        }
+    }
+
     internal static class DiffSingerVariancePatch {
         public static ulong BuildStateKey(ulong baseHash, int phrasePosition, int phraseEnd) {
             unchecked {
@@ -29,10 +72,36 @@ namespace OpenUtau.Core.DiffSinger {
             IReadOnlyList<float> previous,
             IReadOnlyList<float> current,
             float epsilon) {
-            int length = Math.Min(previous.Count, current.Count);
+            int length = Math.Max(previous.Count, current.Count);
             var mask = new bool[length];
             for (int i = 0; i < length; i++) {
-                mask[i] = Math.Abs(previous[i] - current[i]) > epsilon;
+                mask[i] = i >= previous.Count || i >= current.Count ||
+                    Math.Abs(previous[i] - current[i]) > epsilon;
+            }
+            return mask;
+        }
+
+        internal static bool[] BuildChangedFrameMask(
+            IReadOnlyList<float> previous,
+            IReadOnlyList<float> current,
+            int frameCount,
+            float epsilon) {
+            if (frameCount <= 0) {
+                return Array.Empty<bool>();
+            }
+            if (previous.Count != current.Count || previous.Count % frameCount != 0) {
+                return Enumerable.Repeat(true, frameCount).ToArray();
+            }
+            int valuesPerFrame = previous.Count / frameCount;
+            var mask = new bool[frameCount];
+            for (int frame = 0; frame < frameCount; frame++) {
+                int offset = frame * valuesPerFrame;
+                for (int i = 0; i < valuesPerFrame; i++) {
+                    if (Math.Abs(previous[offset + i] - current[offset + i]) > epsilon) {
+                        mask[frame] = true;
+                        break;
+                    }
+                }
             }
             return mask;
         }
@@ -122,16 +191,29 @@ namespace OpenUtau.Core.DiffSinger {
                 Math.Abs(previous.frameMs - current.frameMs) < 1e-4f;
         }
 
+        internal static bool IsChannelLayoutCompatible(
+            VarianceResult result,
+            int totalFrames,
+            bool predictEnergy,
+            bool predictBreathiness,
+            bool predictVoicing,
+            bool predictTension) {
+            return ChannelMatches(result.energy, predictEnergy, totalFrames) &&
+                ChannelMatches(result.breathiness, predictBreathiness, totalFrames) &&
+                ChannelMatches(result.voicing, predictVoicing, totalFrames) &&
+                ChannelMatches(result.tension, predictTension, totalFrames);
+        }
+
         internal static bool IsCompatible(VarianceResult previous, VarianceResult current) {
             return IsMetadataCompatible(previous, current) &&
-                previous.totalFrames == current.totalFrames &&
-                previous.headFrames == current.headFrames &&
-                previous.tailFrames == current.tailFrames &&
-                Math.Abs(previous.frameMs - current.frameMs) < 1e-4f &&
                 SameLength(previous.energy, current.energy) &&
                 SameLength(previous.breathiness, current.breathiness) &&
                 SameLength(previous.voicing, current.voicing) &&
                 SameLength(previous.tension, current.tension);
+        }
+
+        static bool ChannelMatches(float[]? values, bool enabled, int totalFrames) {
+            return enabled ? values?.Length == totalFrames : values == null;
         }
 
         static bool SameLength(float[]? a, float[]? b) {
