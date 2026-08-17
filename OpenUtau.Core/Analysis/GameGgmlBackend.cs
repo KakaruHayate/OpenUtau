@@ -26,6 +26,26 @@ namespace OpenUtau.Core.Analysis;
 /// One <see cref="GameGgmlBackend"/> instance owns exactly one subprocess; the
 /// subclass <see cref="Game"/> disposes it after the whole transcription.
 /// </summary>
+///
+/// Recommended GGML configuration (7-channel 60 s benchmark, nsteps=8,
+/// frame-level metrics vs torch-CUDA fp32 no-cache baseline — all EPS ≥ 0.97 RPA):
+///
+///   | platform      | GPU           | weights | EP offered by oudep pkg |
+///   |---------------|---------------|---------|--------------------------|
+///   | Windows       | NVIDIA        | F32     | CUDA (fallback Vulkan)   |
+///   | Windows       | Intel/AMD/etc | F32     | Vulkan                   |
+///   | Windows       | integrated    | F32/Q8  | CPU (+ DBCache): 0.44x wall |
+///   | Linux         | NVIDIA        | F32     | CUDA (fallback Vulkan)   |
+///   | Linux         | Nouveau/AMD   | F32     | Vulkan                   |
+///   | macOS         | Apple Silicon | F32     | Metal (only EP)          |
+///   | macOS         | Intel         | F32     | Metal (cross-compiled)   |
+///
+/// Rules of thumb (no user config required — CLI picks backend from GGUF/EP):
+///  * GPU present → F32 weights; CPU-only → CPU EP with DBCache on by default
+///  * on GPU, Vulkan is our smallest-VRAM (≈+0.3 GiB) and CUDA the fastest
+///  * Q8 saves VRAM/RAM (~3.4x smaller weights) at near-lossless quality but may
+///    flip a boundary note on Vulkan — prefer the -full package if you need
+///    bit-consistent output; both are equally valid in practice.
 public class GameGgmlBackend : IGameBackend {
     private const string PackageId = "game";
     // Single oudep package contains both the CLI binary and the GGUF weights.
