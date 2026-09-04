@@ -221,7 +221,6 @@ namespace OpenUtau.Core.DiffSinger {
                     $"Vocoder and acoustic model has mismatching mel scale ({vocoder.mel_scale} != {singer.dsConfig.mel_scale})");
             }
 
-            var acousticModel = singer.getAcousticSession();
             var frameMs = vocoder.frameMs();
             var frameSec = frameMs / 1000;
             int headFrames = DiffSingerUtils.headFrames;
@@ -374,9 +373,8 @@ namespace OpenUtau.Core.DiffSinger {
                     throw new Exception(
                         "This singer has no variance predictor but its acoustic model requires one.");
                 }
-                var variancePredictor = singer.getVariancePredictor();
                 VarianceResult varianceResult;
-                lock(variancePredictor){
+                lock(singer.SessionLock){
                     if(cancellation.IsCancellationRequested) {
                         return null;
                     }
@@ -467,16 +465,19 @@ namespace OpenUtau.Core.DiffSinger {
                         .Reshape(new int[] { 1, tension.Length })));
                 }
             }
-            Onnx.VerifyInputNames(acousticModel, acousticInputs);
             var acousticCache = Preferences.Default.DiffSingerTensorCache
                 ? new DiffSingerCache(singer.acousticHash, acousticInputs)
                 : null;
             var acousticOutputs = acousticCache?.Load();
             if (acousticOutputs is null) {
-                lock(acousticModel){
+                lock(singer.SessionLock){
                     if(cancellation.IsCancellationRequested) {
                         return null;
                     }
+                    // Acquire inside the lock: fetching the session before it would let
+                    // FreeMemory dispose it between acquisition and Run (native use-after-free).
+                    var acousticModel = singer.getAcousticSession();
+                    Onnx.VerifyInputNames(acousticModel, acousticInputs);
                     acousticOutputs = acousticModel.Run(acousticInputs).Cast<NamedOnnxValue>().ToList();
                 }
                 acousticCache?.Save(acousticOutputs);
@@ -513,11 +514,13 @@ namespace OpenUtau.Core.DiffSinger {
                 : null;
             var vocoderOutputs = vocoderCache?.Load();
             if (vocoderOutputs is null) {
-                lock(vocoder){
+                lock(singer.SessionLock){
                     if(cancellation.IsCancellationRequested) {
                         return null;
                     }
-                    vocoderOutputs = vocoder.session.Run(vocoderInputs).Cast<NamedOnnxValue>().ToList();
+                    // Re-acquire inside the lock: the outer `vocoder` reference is only safe for
+                    // config reads; FreeMemory may have disposed its session in the meantime.
+                    vocoderOutputs = singer.getVocoder().session.Run(vocoderInputs).Cast<NamedOnnxValue>().ToList();
                 }
                 vocoderCache?.Save(vocoderOutputs);
                 phrase.AddCacheFile(vocoderCache?.Filename);
@@ -537,9 +540,9 @@ namespace OpenUtau.Core.DiffSinger {
             if (!singer.HasPitchPredictor) {
                 throw new Exception("This singer has no pitch predictor.");
             }
-            var pitchPredictor = singer.getPitchPredictor()!;
-            lock (pitchPredictor) {
-                return pitchPredictor.Process(phrase);
+            lock (singer.SessionLock) {
+                // Acquire inside the lock so FreeMemory cannot dispose the model in between.
+                return singer.getPitchPredictor()!.Process(phrase);
             }
         }
 
@@ -555,7 +558,6 @@ namespace OpenUtau.Core.DiffSinger {
             if (!singer.HasPitchPredictor) {
                 throw new Exception("This singer has no pitch predictor.");
             }
-            var pitchPredictor = singer.getPitchPredictor()!;
             var noteRelativePositions = new int[phrase.notes.Length];
             for (int i = 0; i < phrase.notes.Length; i++) {
                 noteRelativePositions[i] = phrase.notes[i].position;
@@ -563,19 +565,20 @@ namespace OpenUtau.Core.DiffSinger {
             var retakeNoteIndexes = DiffSingerRetake.MapSelectedPositionsToNoteIndexes(
                 phrase.position, noteRelativePositions, selectedNotePositions);
             if (retakeNoteIndexes.Count == 0 || retakeNoteIndexes.Count == phrase.notes.Length) {
-                lock (pitchPredictor) {
-                    return pitchPredictor.Process(phrase);
+                lock (singer.SessionLock) {
+                    return singer.getPitchPredictor()!.Process(phrase);
                 }
             }
-            var frameMs = pitchPredictor.FrameMs;
+            var frameMs = singer.getPitchPredictor()!.FrameMs;
             int headFrames = DiffSingerUtils.headFrames;
             int tailFrames = DiffSingerUtils.tailFrames;
             var ph_dur = DiffSingerUtils.PaddedPhoneDurations(phrase, frameMs, headFrames, tailFrames);
             int totalFrames = ph_dur.Sum();
             var existingPitch = DiffSingerUtils.SampleCurve(phrase, phrase.pitches, 0, frameMs, totalFrames, headFrames, tailFrames,
                 x => x * 0.01).Select(f => (float)f).ToArray();
-            lock (pitchPredictor) {
-                return pitchPredictor.Process(phrase, retakeNoteIndexes, existingPitch);
+            lock (singer.SessionLock) {
+                // Re-acquire inside the lock for the same FreeMemory race as above.
+                return singer.getPitchPredictor()!.Process(phrase, retakeNoteIndexes, existingPitch);
             }
         }
 
@@ -586,8 +589,9 @@ namespace OpenUtau.Core.DiffSinger {
             DiffSingerSinger singer = (DiffSingerSinger) phrase.singer;
             var results = new List<RenderRealCurveResult>();
             if (singer.HasVariancePredictor) {
-                var variancePredictor = singer.getVariancePredictor()!;
-                lock (variancePredictor) {
+                lock (singer.SessionLock) {
+                    // Acquire inside the lock so FreeMemory cannot dispose the model in between.
+                    var variancePredictor = singer.getVariancePredictor()!;
                     var result = variancePredictor.Process(phrase);
                     results.AddRange(BuildRenderedRealCurves(phrase, result));
                 }
