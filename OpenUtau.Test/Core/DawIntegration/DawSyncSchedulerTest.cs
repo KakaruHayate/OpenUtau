@@ -97,7 +97,7 @@ namespace OpenUtau.Core.DawIntegration {
             scheduler.RequestFullSync(T0);
 
             Assert.Equal(
-                new[] { DawSyncKind.Ustx, DawSyncKind.Tracks, DawSyncKind.PartLayout },
+                new[] { DawSyncKind.Ustx, DawSyncKind.Tracks, DawSyncKind.PartLayout, DawSyncKind.ProjectInfo },
                 scheduler.TryTake(T0));
         }
 
