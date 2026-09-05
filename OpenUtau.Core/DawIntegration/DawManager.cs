@@ -700,6 +700,16 @@ namespace OpenUtau.Core.DawIntegration {
             }
         }
 
+        /// <summary>
+        /// Builds the <c>updateTracks</c> notification payload from the current project's track list.
+        /// </summary>
+        /// <remarks>
+        /// Runs on the document thread to snapshot each track's mixer state (name, volume, pan,
+        /// muted) and v1.2 informational fields (singer name from <see cref="Ustx.UTrack.Singer"/>,
+        /// engine key from <see cref="Ustx.URenderSettings.renderer"/>). Singer and engine changes
+        /// are <see cref="TrackCommand"/>s, so the same debounced sync keeps them fresh without
+        /// additional triggers.
+        /// </remarks>
         private Task<UpdateTracksNotification> BuildTracksAsync() {
             return OnDocumentThreadAsync(() => new UpdateTracksNotification {
                 Tracks = ProjectSource().tracks
@@ -710,6 +720,11 @@ namespace OpenUtau.Core.DawIntegration {
                         // Kept on the wire for compatibility, but the bridge sends pre-fader
                         // audio and leaves gain, pan, mute and solo to the DAW mixer.
                         Muted = track.Muted,
+                        // v1.2: informational fields for the plugin's GUI. Singer changes and
+                        // renderer changes are TrackCommands, so the same Tracks sync keeps
+                        // these fresh without new triggers.
+                        Singer = track.Singer?.Name ?? string.Empty,
+                        Engine = track.RendererSettings.renderer ?? string.Empty,
                     })
                     .ToList(),
             });
