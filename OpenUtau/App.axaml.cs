@@ -44,7 +44,19 @@ namespace OpenUtau.App {
         // Both are logged and surfaced instead of taking the whole application down.
         void RegisterUnhandledExceptionHandlers() {
             TaskScheduler.UnobservedTaskException += (sender, args) => {
-                Log.Error(args.Exception, "Unobserved task exception");
+                // Cancellation is normal control flow here: renders and phonemization are
+                // cancelled all the time, and those exceptions are not failures.
+                var cancelled = args.Exception.InnerExceptions.All(e => e is OperationCanceledException);
+                if (cancelled) {
+                    Log.Debug("Unobserved task exception (cancellation).");
+                } else {
+                    Log.Error(args.Exception, "Unobserved task exception");
+                    try {
+                        DocManager.Inst.ExecuteCmd(new ErrorMessageNotification(args.Exception));
+                    } catch (Exception e) {
+                        Log.Error(e, "Failed to report an unobserved task exception");
+                    }
+                }
                 args.SetObserved();
             };
 
