@@ -282,8 +282,8 @@ namespace OpenUtau.Core.Ustx {
                 for (int i = 0; i < phonemes.Count - 1; ++i) {
                     if (phonemes[i].rawPosition > phonemes[i + 1].rawPosition) {
                         Log.Warning("Out-of-order phonemes in part {Part}: {Phoneme} at {Position} comes after {Next} at {NextPosition}.",
-                            name, phonemes[i].phoneme, phonemes[i].rawPosition,
-                            phonemes[i + 1].phoneme, phonemes[i + 1].rawPosition);
+                            name, phonemes[i].rawPhoneme, phonemes[i].rawPosition,
+                            phonemes[i + 1].rawPhoneme, phonemes[i + 1].rawPosition);
                         break;
                     }
                 }
