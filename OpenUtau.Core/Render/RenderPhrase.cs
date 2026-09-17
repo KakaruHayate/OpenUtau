@@ -5,6 +5,7 @@ using System.Linq;
 using System.Numerics;
 using K4os.Hash.xxHash;
 using OpenUtau.Classic;
+using OpenUtau.Core.DiffSinger;
 using OpenUtau.Core.Ustx;
 using Serilog;
 
@@ -279,6 +280,20 @@ namespace OpenUtau.Core.Render {
                 pitches[index] = pitches[index - 1];
                 index++;
             }
+            if (PitchDebugLog.Enabled) {
+                PitchDebugLog.Section($"basePitch pos={position} pitchStart={pitchStart} len={pitches.Length} renderer={renderer?.SingerType}");
+                foreach (int noteIdx in uNotes) {
+                    var n = notesOf[noteIdx];
+                    PitchDebugLog.Line($"  note {noteIdx} pos={n.Position} end={n.End} tone={n.AdjustedTone} " +
+                        $"vibrato(len={n.Vibrato.Length} period={n.Vibrato.Period} depth={n.Vibrato.Depth} " +
+                        $"in={n.Vibrato.In} out={n.Vibrato.Out} shift={n.Vibrato.Shift} drift={n.Vibrato.Drift}) " +
+                        $"pitchPoints={n.PitchPoints.Count}");
+                    foreach (var p in n.PitchPoints) {
+                        PitchDebugLog.Line($"    pp x={p.X} y={p.Y} shape={p.shape} auto={p.autoCompleted}");
+                    }
+                }
+                PitchDebugLog.Line($"  base[fill]={PitchDebugLog.Values(pitches)}");
+            }
             // Vibrato
             foreach (int noteIdx in uNotes) {
                 var note = notesOf[noteIdx];
@@ -295,6 +310,7 @@ namespace OpenUtau.Core.Render {
                     pitches[i] = point.Y * 100;
                 }
             }
+            PitchDebugLog.Line($"  base[vibrato]={PitchDebugLog.Values(pitches)}");
             // Pitch points
             foreach (int noteIdx in uNotes) {
                 var note = notesOf[noteIdx];
@@ -432,6 +448,7 @@ namespace OpenUtau.Core.Render {
             }
 
             // PITD
+            PitchDebugLog.Line($"  base[before deviation]={PitchDebugLog.Values(pitches)}");
             pitchesBeforeDeviation = pitches.ToArray();
             var pitchCurve = source.Curves.FirstOrDefault(c => c.Abbr == Format.Ustx.PITD);
             if (pitchCurve != null && !pitchCurve.IsEmpty) {

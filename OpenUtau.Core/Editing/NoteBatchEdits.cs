@@ -514,6 +514,11 @@ namespace OpenUtau.Core.Editing {
                 if (result == null) {
                     continue;
                 }
+                PitchDebugLog.Section($"writeback pos={phrase.position} dur={phrase.duration} " +
+                    $"positionMs={phrase.positionMs:F2} endMs={phrase.endMs:F2} leading={phrase.leading} " +
+                    $"notes={phrase.notes.Length} partPos={part.position} " +
+                    $"tones={result.tones.Length} voiced={(result.voiced == null ? "null" : result.voiced.Length.ToString())} " +
+                    $"retakeMask={(result.retakeMask == null ? "null" : "set")}");
                 // TODO: Optimize interpolation and command.
                 if (cancellationToken.IsCancellationRequested) break;
                 // Take the first negative tick before start and the first tick after end for each segment;
@@ -524,12 +529,14 @@ namespace OpenUtau.Core.Editing {
                     int? lastY = null;
                     for (int i = start; i < end; i++) {
                         if (result.tones[i] < 0) {
+                            PitchDebugLog.Line($"  i={i,4} skip tones<0 tone={result.tones[i]:F2}");
                             continue;
                         }
                         // Padding and inter-phoneme gap frames are silence: the
                         // pitch model's output there is an artifact, and writing
                         // it back produces a spike at the phrase/gap boundary.
                         if (result.voiced != null && i < result.voiced.Length && !result.voiced[i]) {
+                            PitchDebugLog.Line($"  i={i,4} skip unvoiced tone={result.tones[i],8:F2}");
                             continue;
                         }
                         int x = phrase.position - part.position + (int)result.ticks[i];
@@ -543,6 +550,8 @@ namespace OpenUtau.Core.Editing {
                         int pitchIndex = Math.Clamp((x - (phrase.position - part.position - phrase.leading)) / 5, 0, phrase.pitches.Length - 1);
                         float basePitch = phrase.pitchesBeforeDeviation[pitchIndex];
                         int y = (int)(result.tones[i] * 100 - basePitch);
+                        PitchDebugLog.Line($"  i={i,4} x={x,6} tick={result.ticks[i],9:F1} " +
+                            $"tone={result.tones[i],8:F2} base={basePitch,8:F1} y={y,7}");
                         lastX ??= x;
                         lastY ??= y;
                         if (y > minPitD) {

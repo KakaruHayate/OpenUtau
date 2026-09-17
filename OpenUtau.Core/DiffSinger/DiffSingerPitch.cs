@@ -321,6 +321,26 @@ namespace OpenUtau.Core.DiffSinger
                 .Reshape(new int[] { 1, note_rest.Count })));
             }
 
+            if (PitchDebugLog.Enabled) {
+                PitchDebugLog.Section($"pitch.Process pos={phrase.position} dur={phrase.duration} " +
+                    $"positionMs={phrase.positionMs:F2} endMs={phrase.endMs:F2} leading={phrase.leading} " +
+                    $"frameMs={frameMs:F4} totalFrames={totalFrames} startMs={startMs:F2}");
+                foreach (var n in phrase.notes) {
+                    PitchDebugLog.Line($"  note posMs={n.positionMs,9:F2} durMs={n.durationMs,8:F2} " +
+                        $"endMs={n.endMs,9:F2} tone={n.tone} adj={n.adjustedTone}");
+                }
+                for (int i = 0; i < segments.Count; i++) {
+                    PitchDebugLog.Line($"  seg {segments[i].Phoneme,-4} durMs={segments[i].DurationMs,8:F2} " +
+                        $"frames={ph_dur[i],3} phoneIdx={segments[i].PhoneIndex,3}");
+                }
+                PitchDebugLog.Line($"  noteDurMs=[{string.Join(", ", noteDurMsList.Select(x => x.ToString("F1")))}]");
+                PitchDebugLog.Line($"  note_dur =[{string.Join(", ", note_dur)}]");
+                PitchDebugLog.Line($"  note_midi=[{string.Join(", ", note_midi.Select(x => x.ToString("F1")))}]");
+                PitchDebugLog.Line($"  note_rest=[{string.Join(", ", note_rest)}]");
+                PitchDebugLog.Line($"  voiced   ={PitchDebugLog.Runs(voicedFrames)}");
+                PitchDebugLog.Line($"  retake   ={PitchDebugLog.Runs(retake)}");
+            }
+
             Onnx.VerifyInputNames(pitchModel, pitchInputs);
             var pitchOutputs = pitchModel.Run(pitchInputs);
             var pitch_out = pitchOutputs.First().AsTensor<float>().ToArray();
