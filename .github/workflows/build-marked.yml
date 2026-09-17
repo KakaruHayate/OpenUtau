@@ -1,0 +1,131 @@
+# Test builds of master with a deliberately marked version.
+#
+# Official releases come from upstream's build.yml and use 0.1.x.N.
+# Builds from this workflow are stamped 0.1.9999.<run_number>, so the app
+# title bar reads "OpenUtau v0.1.9999.42 (alpha)" and can never be mistaken
+# for an official build or collide with the release versioning.
+name: Build (marked version)
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag or SHA to build"
+        default: master
+        required: true
+        type: string
+      version_prefix:
+        description: "Version prefix; the run number is appended as the 4th component"
+        default: "0.1.9999"
+        required: true
+        type: string
+      release:
+        description: "Also publish a release carrying the files"
+        default: false
+        type: boolean
+
+concurrency:
+  group: build-marked-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write # only used by the optional release step
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.version_prefix || '0.1.9999' }}.${{ github.run_number }}"
+          $sha = (git rev-parse --short=8 HEAD).Trim()
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "sha=$sha" >> $env:GITHUB_OUTPUT
+          "OpenUtau $version (commit $sha)" >> $env:GITHUB_STEP_SUMMARY
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            6.0.x
+            8.0.x
+            10.0.x
+
+      - uses: repolevedavaj/install-nsis@v1
+        with:
+          nsis-version: '3.11'
+
+      # Stamps the version into OpenUtau.csproj; the 4th component is what
+      # ReleaseChannel.FromVersion reads to label the build as alpha.
+      - uses: justalemon/VersionPatcher@v0.7.1
+        with:
+          version: ${{ steps.ver.outputs.version }}
+          csproj-files: "OpenUtau/*.csproj"
+
+      - name: Test
+        run: dotnet test OpenUtau.Test
+
+      - name: Restore
+        run: dotnet restore OpenUtau -r win-x64
+
+      - name: Build
+        run: dotnet publish OpenUtau -c Release -r win-x64 --self-contained true -o bin/win-x64/
+
+      - name: Write release channel info
+        run: "@{Channel='alpha'} | ConvertTo-Json > bin/win-x64/prefs-default.json"
+        shell: pwsh
+
+      - name: DirectML
+        shell: cmd
+        run: |
+          curl -L https://www.nuget.org/api/v2/package/Microsoft.AI.DirectML/1.15.4 -o Microsoft.AI.DirectML.nupkg
+          mkdir Microsoft.AI.DirectML
+          tar -xf Microsoft.AI.DirectML.nupkg -C Microsoft.AI.DirectML
+          copy /y Microsoft.AI.DirectML\bin\x64-win\DirectML.dll bin\win-x64\
+
+      - name: Zip
+        run: |
+          cd bin/win-x64
+          7z a ../../OpenUtau-win-x64.zip *
+
+      - name: Get VC Redist
+        run: curl https://aka.ms/vs/17/release/vc_redist.x64.exe -o vc_redist.x64.exe
+
+      - name: Create Installer
+        uses: joncloud/makensis-action@v4.1
+        with:
+          script-file: OpenUtau.nsi
+          arguments: "-DPRODUCT_VERSION=${{ steps.ver.outputs.version }} -DARCH=x64"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenUtau-win-x64-${{ steps.ver.outputs.version }}.zip
+          path: OpenUtau-win-x64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenUtau-win-x64-${{ steps.ver.outputs.version }}.exe
+          path: OpenUtau-win-x64.exe
+
+      # Soft-fail: runs on forks whose token may not be allowed to write.
+      - name: Release
+        if: ${{ inputs.release }}
+        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.version }}
+          name: ${{ steps.ver.outputs.version }} (marked build)
+          prerelease: true
+          body: |
+            Marked test build of `${{ inputs.ref || github.ref }}` at commit `${{ steps.ver.outputs.sha }}`.
+          files: |
+            OpenUtau-win-x64.zip
+            OpenUtau-win-x64.exe
