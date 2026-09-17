@@ -70,8 +70,11 @@ jobs:
           version: ${{ steps.ver.outputs.version }}
           csproj-files: "OpenUtau/*.csproj"
 
+      # xunit.v3 runs on Microsoft.Testing.Platform, whose VSTest path the
+      # .NET 10 SDK dropped; run the test project directly instead.
+      # Same fix as upstream PR #2420.
       - name: Test
-        run: dotnet test OpenUtau.Test
+        run: dotnet run --project OpenUtau.Test/OpenUtau.Test.csproj
 
       - name: Restore
         run: dotnet restore OpenUtau -r win-x64
