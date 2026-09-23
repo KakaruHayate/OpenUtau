@@ -318,6 +318,13 @@ namespace OpenUtau.Core.DiffSinger
             return token;
         }
         
+        /// <summary>
+        /// Runs the linguistic encoder and the duration predictor for one part, then
+        /// aligns the predicted durations to the note grid and writes the resulting
+        /// phoneme positions into partResult.
+        /// </summary>
+        /// <param name="phrase">The notes of the part together with the phonemes the
+        /// phonemizer assigned to each of them.</param>
         protected override void ProcessPart(Note[][] phrase) {
             float padding = 500f;//Padding time for consonants at the beginning of a sentence, ms
             float frameMs = dsConfig.frameMs();
