@@ -318,6 +318,13 @@ namespace OpenUtau.Core.DiffSinger
             return token;
         }
         
+        /// <summary>
+        /// Runs the linguistic encoder and the duration predictor for one part, then
+        /// aligns the predicted durations to the note grid and writes the resulting
+        /// phoneme positions into partResult.
+        /// </summary>
+        /// <param name="phrase">The notes of the part together with the phonemes the
+        /// phonemizer assigned to each of them.</param>
         protected override void ProcessPart(Note[][] phrase) {
             float padding = 500f;//Padding time for consonants at the beginning of a sentence, ms
             float frameMs = dsConfig.frameMs();
@@ -376,12 +383,12 @@ namespace OpenUtau.Core.DiffSinger
             linguisticInputs.Add(NamedOnnxValue.CreateFromTensor("tokens",
                 new DenseTensor<Int64>(tokens, new int[] { tokens.Length }, false)
                 .Reshape(new int[] { 1, tokens.Length })));
-            linguisticInputs.Add(NamedOnnxValue.CreateFromTensor("word_div",
-                new DenseTensor<Int64>(word_div, new int[] { word_div.Length }, false)
-                .Reshape(new int[] { 1, word_div.Length })));
-            linguisticInputs.Add(NamedOnnxValue.CreateFromTensor("word_dur",
-                new DenseTensor<Int64>(word_dur, new int[] { word_dur.Length }, false)
-                .Reshape(new int[] { 1, word_dur.Length })));
+            var wordDivTensor = new DenseTensor<Int64>(word_div, new int[] { word_div.Length }, false)
+                .Reshape(new int[] { 1, word_div.Length });
+            var wordDurTensor = new DenseTensor<Int64>(word_dur, new int[] { word_dur.Length }, false)
+                .Reshape(new int[] { 1, word_dur.Length });
+            linguisticInputs.Add(NamedOnnxValue.CreateFromTensor("word_div", wordDivTensor));
+            linguisticInputs.Add(NamedOnnxValue.CreateFromTensor("word_dur", wordDurTensor));
             //Language id
             if(dsConfig.use_lang_id){
                 var langIdByPhone = phrasePhonemes
@@ -420,6 +427,17 @@ namespace OpenUtau.Core.DiffSinger
             durationInputs.Add(NamedOnnxValue.CreateFromTensor("ph_midi",
                 new DenseTensor<Int64>(ph_midi, new int[] { ph_midi.Length }, false)
                 .Reshape(new int[] { 1, ph_midi.Length })));
+            //Group-aware duration models derive the phone-to-group map from word_div
+            //and take every group's frame budget from word_dur. Both tensors are
+            //already built for the linguistic encoder above, so pass them on when
+            //(and only when) the duration graph declares them; older duration
+            //models keep working unchanged because they do not declare them.
+            if (durationModel.InputMetadata.ContainsKey("word_div")) {
+                durationInputs.Add(NamedOnnxValue.CreateFromTensor("word_div", wordDivTensor));
+            }
+            if (durationModel.InputMetadata.ContainsKey("word_dur")) {
+                durationInputs.Add(NamedOnnxValue.CreateFromTensor("word_dur", wordDurTensor));
+            }
             //Speaker
             if(dsConfig.speakers != null){
                 var speakerEmbedManager = getSpeakerEmbedManager();
