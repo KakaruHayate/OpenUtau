@@ -25,6 +25,9 @@ namespace OpenUtau.Core.DawIntegration {
         public bool Elevated { get; init; }
         /// <summary>True when elevation was declined or failed and the per-user folder was used instead.</summary>
         public bool FellBack { get; init; }
+        /// <summary>Null when elevation succeeded or was never attempted; "declined" when the
+        /// user cancelled the UAC prompt, otherwise the message of the elevation failure.</summary>
+        public string? ElevationError { get; init; }
     }
 
     /// <summary>
@@ -103,11 +106,11 @@ namespace OpenUtau.Core.DawIntegration {
         /// <summary>Downloads the release zip (reporting 0-100 through <paramref name="progress"/>,
         /// with indeterminate downloads reported as -1) and extracts it to a fresh temp folder,
         /// whose root is returned.</summary>
+        /// <remarks>The work directory is unique per call: two OpenUtau processes installing at
+        /// the same time must not delete each other's download or extracted bundle.</remarks>
         public static async Task<string> FetchPackageAsync(IProgress<int>? progress, CancellationToken ct) {
-            string workDir = Path.Combine(Path.GetTempPath(), "OpenUtau", "BridgeInstall");
-            if (Directory.Exists(workDir)) {
-                Directory.Delete(workDir, true);
-            }
+            string workDir = Path.Combine(
+                Path.GetTempPath(), "OpenUtau", "BridgeInstall", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(workDir);
             string zipPath = Path.Combine(workDir, "plugins.zip");
 
@@ -172,11 +175,20 @@ namespace OpenUtau.Core.DawIntegration {
                 try {
                     string target = CopyWithElevation(format, bundlePath, roots[0]);
                     return new DawBridgeInstallResult { TargetDirectory = target, Elevated = true };
+                } catch (Win32Exception w) when (w.NativeErrorCode == 1223) {
+                    Log.Warning($"DAW bridge: elevation for {format} declined; falling back to per-user folder.");
+                    return new DawBridgeInstallResult {
+                        TargetDirectory = CopyPlain(format, bundlePath, roots[1]),
+                        FellBack = true,
+                        ElevationError = "declined",
+                    };
                 } catch (Exception e) {
-                    bool declined = e is Win32Exception win32 && win32.NativeErrorCode == 1223;
-                    Log.Warning(e, $"DAW bridge: elevation for {format} {(declined ? "declined" : "failed")}; falling back to per-user folder.");
-                    string target = CopyPlain(format, bundlePath, roots[1]);
-                    return new DawBridgeInstallResult { TargetDirectory = target, FellBack = true };
+                    Log.Warning(e, $"DAW bridge: elevation for {format} failed; falling back to per-user folder.");
+                    return new DawBridgeInstallResult {
+                        TargetDirectory = CopyPlain(format, bundlePath, roots[1]),
+                        FellBack = true,
+                        ElevationError = e.Message,
+                    };
                 }
             }
             string targetDirectory = CopyPlain(format, bundlePath, InstallRoots(format)[0]);

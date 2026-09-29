@@ -148,8 +148,14 @@ namespace OpenUtau.App.ViewModels {
                 }
                 var result = await Task.Run(() => DawBridgeInstaller.Install(format, bundle));
                 RefreshInstallState();
+                // Three outcomes: elevated success, UAC declined (per-user fallback), or the
+                // elevated copy itself failing (per-user fallback with the error surfaced).
                 InstallStatus = result.FellBack
-                    ? string.Format(ThemeManager.GetString("dawintegration.guide.install.fallback"), result.TargetDirectory)
+                    ? string.Format(
+                        ThemeManager.GetString(result.ElevationError == "declined"
+                            ? "dawintegration.guide.install.fallback"
+                            : "dawintegration.guide.install.elevfail"),
+                        result.ElevationError, result.TargetDirectory)
                     : string.Format(ThemeManager.GetString("dawintegration.guide.install.done"), result.TargetDirectory);
                 Log.Information(
                     $"DAW bridge: {format} installed to {result.TargetDirectory} (elevated={result.Elevated}, fellBack={result.FellBack})");

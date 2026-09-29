@@ -135,6 +135,9 @@
               <TextBlock FontWeight="Bold" Margin="0,4,0,0"
                          Text="{DynamicResource dawintegration.guide.steps.header}"/>
               <TextBlock TextWrapping="Wrap" Text="{DynamicResource dawintegration.guide.step1}"/>
+              <TextBlock TextWrapping="Wrap" Margin="12,0,0,0"
+                         FontFamily="Consolas, Menlo, monospace"
+                         Text="{Binding GuideInstallPaths}"/>
               <TextBlock TextWrapping="Wrap" Text="{DynamicResource dawintegration.guide.step2}"/>
               <TextBlock TextWrapping="Wrap" Text="{DynamicResource dawintegration.guide.step3}"/>
 

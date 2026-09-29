@@ -148,7 +148,8 @@
   <system:String x:Key="dawintegration.guide.install.downloading">正在下载… {0}%</system:String>
   <system:String x:Key="dawintegration.guide.install.extracting">正在解压…</system:String>
   <system:String x:Key="dawintegration.guide.install.failed">安装失败：{0}</system:String>
-  <system:String x:Key="dawintegration.guide.install.fallback">未获得管理员授权，已改为安装到用户目录 {0}。请在 DAW 中重新扫描插件，然后回到这里点击刷新。</system:String>
+  <system:String x:Key="dawintegration.guide.install.fallback">未获得管理员授权，已改为安装到用户目录 {1}。请在 DAW 中重新扫描插件，然后回到这里点击刷新。</system:String>
+  <system:String x:Key="dawintegration.guide.install.elevfail">提权复制失败（{0}），已改为安装到用户目录 {1}。请在 DAW 中重新扫描插件，然后回到这里点击刷新。</system:String>
   <system:String x:Key="dawintegration.guide.install.preparing">正在准备下载…</system:String>
   <system:String x:Key="dawintegration.guide.install.vst3">安装 VST3</system:String>
   <system:String x:Key="dawintegration.guide.installed.no">未安装</system:String>

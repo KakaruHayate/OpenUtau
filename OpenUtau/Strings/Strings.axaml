@@ -147,7 +147,8 @@
   <system:String x:Key="dawintegration.guide.install.downloading">Downloading... {0}%</system:String>
   <system:String x:Key="dawintegration.guide.install.extracting">Unpacking...</system:String>
   <system:String x:Key="dawintegration.guide.install.failed">Installation failed: {0}</system:String>
-  <system:String x:Key="dawintegration.guide.install.fallback">Administrator approval was declined, so the plugin went into the per-user folder {0} instead. Rescan plugins in your DAW, then click Refresh here.</system:String>
+  <system:String x:Key="dawintegration.guide.install.fallback">Administrator approval was declined, so the plugin went into the per-user folder {1} instead. Rescan plugins in your DAW, then click Refresh here.</system:String>
+  <system:String x:Key="dawintegration.guide.install.elevfail">The elevated copy failed ({0}), so the plugin went into the per-user folder {1} instead. Rescan plugins in your DAW, then click Refresh here.</system:String>
   <system:String x:Key="dawintegration.guide.install.preparing">Preparing download...</system:String>
   <system:String x:Key="dawintegration.guide.install.vst3">Install VST3</system:String>
   <system:String x:Key="dawintegration.guide.installed.no">Not installed</system:String>
