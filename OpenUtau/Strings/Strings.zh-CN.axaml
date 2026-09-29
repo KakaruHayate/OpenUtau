@@ -144,6 +144,7 @@
   <system:String x:Key="dawintegration.guide.download">下载 {0} 版</system:String>
   <system:String x:Key="dawintegration.guide.install.header">安装插件（自动检测本机）</system:String>
   <system:String x:Key="dawintegration.guide.install.clap">安装 CLAP</system:String>
+  <system:String x:Key="dawintegration.guide.install.clap.reinstall">重新安装 CLAP</system:String>
   <system:String x:Key="dawintegration.guide.install.done">已安装到 {0}。请在 DAW 中重新扫描插件，然后回到这里点击刷新。</system:String>
   <system:String x:Key="dawintegration.guide.install.downloading">正在下载… {0}%</system:String>
   <system:String x:Key="dawintegration.guide.install.extracting">正在解压…</system:String>
@@ -152,6 +153,7 @@
   <system:String x:Key="dawintegration.guide.install.elevfail">提权复制失败（{0}），已改为安装到用户目录 {1}。请在 DAW 中重新扫描插件，然后回到这里点击刷新。</system:String>
   <system:String x:Key="dawintegration.guide.install.preparing">正在准备下载…</system:String>
   <system:String x:Key="dawintegration.guide.install.vst3">安装 VST3</system:String>
+  <system:String x:Key="dawintegration.guide.install.vst3.reinstall">重新安装 VST3</system:String>
   <system:String x:Key="dawintegration.guide.installed.no">未安装</system:String>
   <system:String x:Key="dawintegration.guide.installed.ok">已安装</system:String>
   <system:String x:Key="dawintegration.guide.releases">全部版本</system:String>

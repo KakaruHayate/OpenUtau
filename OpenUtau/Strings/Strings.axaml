@@ -143,6 +143,7 @@
   <system:String x:Key="dawintegration.guide.download">Download for {0}</system:String>
   <system:String x:Key="dawintegration.guide.install.header">Install the plugin (detected on this machine)</system:String>
   <system:String x:Key="dawintegration.guide.install.clap">Install CLAP</system:String>
+  <system:String x:Key="dawintegration.guide.install.clap.reinstall">Reinstall CLAP</system:String>
   <system:String x:Key="dawintegration.guide.install.done">Installed to {0}. Rescan plugins in your DAW, then click Refresh here.</system:String>
   <system:String x:Key="dawintegration.guide.install.downloading">Downloading... {0}%</system:String>
   <system:String x:Key="dawintegration.guide.install.extracting">Unpacking...</system:String>
@@ -151,6 +152,7 @@
   <system:String x:Key="dawintegration.guide.install.elevfail">The elevated copy failed ({0}), so the plugin went into the per-user folder {1} instead. Rescan plugins in your DAW, then click Refresh here.</system:String>
   <system:String x:Key="dawintegration.guide.install.preparing">Preparing download...</system:String>
   <system:String x:Key="dawintegration.guide.install.vst3">Install VST3</system:String>
+  <system:String x:Key="dawintegration.guide.install.vst3.reinstall">Reinstall VST3</system:String>
   <system:String x:Key="dawintegration.guide.installed.no">Not installed</system:String>
   <system:String x:Key="dawintegration.guide.installed.ok">Installed</system:String>
   <system:String x:Key="dawintegration.guide.manual">Full manual</system:String>

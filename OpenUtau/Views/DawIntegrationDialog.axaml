@@ -83,12 +83,12 @@
                   <TextBlock Text="{Binding ClapStateText}"/>
                 </StackPanel>
               </StackPanel>
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button Content="{DynamicResource dawintegration.guide.install.vst3}"
-                        Click="OnInstallVst3" IsEnabled="{Binding Vst3InstallEnabled}"/>
-                <Button Content="{DynamicResource dawintegration.guide.install.clap}"
-                        Click="OnInstallClap" IsEnabled="{Binding ClapInstallEnabled}"/>
-              </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="{Binding Vst3ButtonText}"
+                            Click="OnInstallVst3" IsEnabled="{Binding Vst3InstallEnabled}"/>
+                    <Button Content="{Binding ClapButtonText}"
+                            Click="OnInstallClap" IsEnabled="{Binding ClapInstallEnabled}"/>
+                  </StackPanel>
               <TextBlock Text="{Binding InstallStatus}" TextWrapping="Wrap"/>
 
               <TextBlock FontWeight="Bold" Margin="0,4,0,0"

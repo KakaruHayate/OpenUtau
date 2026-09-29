@@ -99,8 +99,18 @@ namespace OpenUtau.App.ViewModels {
         public static string OsDisplayName =>
             OS.IsWindows() ? "Windows" : OS.IsMacOS() ? "macOS" : "Linux";
 
-        public bool Vst3InstallEnabled => !IsBusy && !Vst3Installed;
-        public bool ClapInstallEnabled => !IsBusy && !ClapInstalled;
+        // Installed formats stay clickable: clicking again re-downloads and overwrites, which
+        // doubles as the upgrade path when the plugin ships a new version (and as a retry
+        // after a declined UAC prompt). CopyPlain and robocopy both overwrite in place.
+        public bool Vst3InstallEnabled => !IsBusy;
+        public bool ClapInstallEnabled => !IsBusy;
+
+        public string Vst3ButtonText => Vst3Installed
+            ? ThemeManager.GetString("dawintegration.guide.install.vst3.reinstall")
+            : ThemeManager.GetString("dawintegration.guide.install.vst3");
+        public string ClapButtonText => ClapInstalled
+            ? ThemeManager.GetString("dawintegration.guide.install.clap.reinstall")
+            : ThemeManager.GetString("dawintegration.guide.install.clap");
 
         public string Vst3StateText => Vst3Installed
             ? ThemeManager.GetString("dawintegration.guide.installed.ok")
@@ -120,6 +130,8 @@ namespace OpenUtau.App.ViewModels {
             ClapInstalled = DawBridgeInstaller.FindInstalled(DawBridgeFormat.Clap) != null;
             this.RaisePropertyChanged(nameof(Vst3StateText));
             this.RaisePropertyChanged(nameof(ClapStateText));
+            this.RaisePropertyChanged(nameof(Vst3ButtonText));
+            this.RaisePropertyChanged(nameof(ClapButtonText));
             this.RaisePropertyChanged(nameof(Vst3InstallEnabled));
             this.RaisePropertyChanged(nameof(ClapInstallEnabled));
         }
