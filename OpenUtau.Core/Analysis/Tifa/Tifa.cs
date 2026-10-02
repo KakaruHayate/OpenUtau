@@ -101,6 +101,48 @@ public class Tifa {
         return ResolveInstallDir() != null && ResolveModelPath() != null;
     }
 
+    /// <summary>The three packages differ only by platform; a package built
+    /// for another OS fails in a confusing way at process start, so the
+    /// manifest's platform tag is checked first.</summary>
+    public static string CurrentPlatformTag() {
+        string os = OS.IsWindows() ? "windows" : OS.IsMacOS() ? "macos" : "linux";
+        string arch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture switch {
+            System.Runtime.InteropServices.Architecture.X64 => "x64",
+            System.Runtime.InteropServices.Architecture.Arm64 => "arm64",
+            System.Runtime.InteropServices.Architecture.X86 => "x86",
+            var other => other.ToString().ToLowerInvariant(),
+        };
+        return $"{os}-{arch}";
+    }
+
+    static void VerifyPlatform(string installDir) {
+        string configPath = Path.Combine(installDir, "config.json");
+        if (!File.Exists(configPath)) {
+            return;
+        }
+        try {
+            using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(configPath));
+            if (!document.RootElement.TryGetProperty("platform", out var platform)) {
+                return;
+            }
+            string? expected = platform.GetString();
+            string current = CurrentPlatformTag();
+            if (!string.IsNullOrEmpty(expected)
+                && !string.Equals(expected, current, StringComparison.OrdinalIgnoreCase)
+                // macOS x64 can run arm64 builds through Rosetta; the reverse
+                // is not true.
+                && !(expected == "macos-arm64" && current == "macos-x64")) {
+                throw new InvalidOperationException(
+                    $"The installed TIFA package is built for {expected}, but this machine is {current}. " +
+                    "Uninstall it and install the matching package.");
+            }
+        } catch (InvalidOperationException) {
+            throw;
+        } catch (Exception e) {
+            Log.Warning(e, "Failed to read TIFA package config at {Path}", configPath);
+        }
+    }
+
     /// <summary>
     /// Align <paramref name="sequence"/> against the recording.
     /// <paramref name="audio"/> must be mono/stereo float PCM of
@@ -119,6 +161,7 @@ public class Tifa {
             throw new FileNotFoundException(
                 "The TIFA aligner package is not installed. Install the tifa-ggml .oudep package to use this feature.");
         }
+        VerifyPlatform(installDir);
         string cliPath = Path.Combine(installDir, CliFileName);
         EnsureExecutable(cliPath);
 
