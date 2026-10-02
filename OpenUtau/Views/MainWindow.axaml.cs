@@ -1708,7 +1708,11 @@ namespace OpenUtau.App.Views {
                         };
                         var alignResult = await Task.Run(() => Tifa.Extract(
                             project, wavePart, targetPart, transcribeVm.TifaResolvedLanguage, tifaOptions,
-                            _ => { }, cts.Token));
+                            (chunk, chunks) => {
+                                msgbox.SetText(chunks > 1
+                                    ? $"{alignText} {part.name} ({chunk}/{chunks})"
+                                    : $"{alignText} {part.name}");
+                            }, cts.Token));
                         if (alignResult.Cancelled || cancelled) {
                             return;
                         }

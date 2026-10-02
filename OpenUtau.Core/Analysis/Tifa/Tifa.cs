@@ -14,6 +14,9 @@ namespace OpenUtau.Core.Analysis;
 public class TifaOptions {
     public string Backend { get; set; } = "auto";
     public double SkipPenalty { get; set; } = 0.5;
+    /// <summary>Longest audio slice handed to one alignment pass. tifa.cpp
+    /// caps the CLI at 60 s and its author recommends staying below that.</summary>
+    public double MaxChunkSeconds { get; set; } = 40.0;
     /// <summary>Position phonemes by their audible onset (classic singers) or
     /// by the raw phoneme position (model singers).</summary>
     public bool AudibleOnset { get; set; }
@@ -36,6 +39,8 @@ public class TifaExtractionResult {
     public int ClampedPhonemes;
     /// <summary>Notes whose aligned window was too short to trust.</summary>
     public int UncertainNotes;
+    /// <summary>Number of alignment passes the part was split into.</summary>
+    public int ChunkCount;
     public double Agreement;
     public double Confidence;
     public List<string> Unresolved = new();
@@ -144,15 +149,13 @@ public class Tifa {
     }
 
     /// <summary>
-    /// Align <paramref name="sequence"/> against the recording.
-    /// <paramref name="audio"/> must be mono/stereo float PCM of
-    /// <paramref name="sampleRate"/> starting at <paramref name="originMs"/> on
-    /// the project timeline.
+    /// Align one chunk's phone list against its audio slice. The returned
+    /// spans are parallel to <paramref name="phones"/> and relative to the
+    /// start of <paramref name="audio"/>.
     /// </summary>
-    public TifaAlignOutput Align(TifaSequence sequence, float[] audio, int channels, int sampleRate,
-        TifaLanguage language, TifaOptions options,
-        Action<string>? progress, CancellationToken token) {
-        if (sequence.Phones.Count == 0) {
+    public TifaAlignOutput Align(List<string> phones, float[] audio, int channels, int sampleRate,
+        TifaLanguage language, TifaOptions options, CancellationToken token) {
+        if (phones.Count == 0) {
             throw new InvalidOperationException("No phonemes to align.");
         }
         string? installDir = ResolveInstallDir();
@@ -173,7 +176,7 @@ public class Tifa {
             string phonesPath = Path.Combine(workDir, "phones.txt");
             string languageCode = TifaPhonemeData.Code(language);
             File.WriteAllText(phonesPath,
-                string.Join(" ", sequence.Phones), new UTF8Encoding(false));
+                string.Join(" ", phones), new UTF8Encoding(false));
 
             var psi = new ProcessStartInfo {
                 FileName = cliPath,
@@ -234,7 +237,6 @@ public class Tifa {
                     // Cancellation must never throw.
                 }
             });
-            progress?.Invoke("aligning");
             process.WaitForExit();
             stdoutDone.Wait(1000);
             stderrDone.Wait(1000);
@@ -294,14 +296,29 @@ public class Tifa {
     }
 
     /// <summary>
+    /// Audio kept on both sides of a chunk so a phone sitting on the boundary
+    /// is not cut off.
+    /// </summary>
+    const double ChunkMarginMs = 500.0;
+
+    /// <summary>Notes of one alignment pass.</summary>
+    class TifaChunk {
+        public int FirstPhone;
+        public int PhoneCount;
+        public List<string> Phones = new();
+        public double StartMs;
+        public double EndMs;
+    }
+
+    /// <summary>
     /// Full pipeline for the UI: snapshot the part, build the phone sequence,
-    /// crop the recording to the part, run the aligner, and turn the returned
-    /// spans into phoneme moves.
+    /// split it into aligner-sized chunks, run the CLI on each, and turn the
+    /// returned spans into phoneme moves.
     /// </summary>
     public static TifaExtractionResult Extract(
         UProject project, UWavePart wavePart, UVoicePart voicePart,
         TifaLanguage language, TifaOptions options,
-        Action<string>? progress, CancellationToken token) {
+        Action<int, int>? progress, CancellationToken token) {
         var result = new TifaExtractionResult();
         var notes = TifaPhonemeAligner.Snapshot(voicePart, project, options.AudibleOnset);
         result.TotalNotes = notes.Count;
@@ -319,19 +336,52 @@ public class Tifa {
             return result;
         }
 
-        var (pcm, channels, sampleRate, originMs) = CropRecording(project, wavePart, voicePart);
+        var (pcm, channels, sampleRate, audioOriginMs) = TrimmedRecording(project, wavePart);
         if (pcm.Length == 0) {
             result.Error = "The recording has no audio under this part.";
             return result;
         }
+        var chunks = BuildChunks(sequence, options.MaxChunkSeconds);
+        result.ChunkCount = chunks.Count;
 
         try {
             var tifa = new Tifa();
-            var output = tifa.Align(sequence, pcm, channels, sampleRate, language, options, progress, token);
-            result.Agreement = output.Agreement;
-            result.Confidence = output.Confidence;
+            var spans = new List<TifaInterval>(sequence.Phones.Count);
+            double agreement = 0;
+            double confidence = 0;
+            for (int i = 0; i < chunks.Count; ++i) {
+                token.ThrowIfCancellationRequested();
+                var chunk = chunks[i];
+                progress?.Invoke(i + 1, chunks.Count);
+                double fromMs = chunk.StartMs - ChunkMarginMs;
+                double toMs = chunk.EndMs + ChunkMarginMs;
+                var (slice, sliceOriginMs) = Slice(
+                    pcm, channels, sampleRate, audioOriginMs, fromMs, toMs);
+                if (slice.Length == 0) {
+                    continue;
+                }
+                var output = tifa.Align(chunk.Phones, slice, channels, sampleRate,
+                    language, options, token);
+                agreement = Math.Max(agreement, output.Agreement);
+                confidence = Math.Max(confidence, output.Confidence);
+                // Rebase every span onto the project timeline; the move
+                // computation then works with a zero origin.
+                foreach (var span in output.Spans) {
+                    spans.Add(new TifaInterval {
+                        Start = (sliceOriginMs + span.Start * 1000.0) / 1000.0,
+                        End = (sliceOriginMs + span.End * 1000.0) / 1000.0,
+                        Text = span.Text,
+                    });
+                }
+                if (spans.Count != chunk.FirstPhone + chunk.PhoneCount) {
+                    throw new InvalidOperationException(
+                        $"The aligner returned {spans.Count} spans for {chunk.FirstPhone + chunk.PhoneCount} phones.");
+                }
+            }
+            result.Agreement = agreement;
+            result.Confidence = confidence;
             result.Moves = TifaPhonemeAligner.ComputeMoves(
-                sequence, output.Spans, originMs, project, voicePart,
+                sequence, spans, 0, project, voicePart,
                 out int clamped, out int uncertain);
             result.ClampedPhonemes = clamped;
             result.UncertainNotes = uncertain;
@@ -345,26 +395,70 @@ public class Tifa {
     }
 
     /// <summary>
-    /// Trimmed recording of the wave part, cropped to the voice part's time
-    /// range. Long parts are aligned in one pass (the CLI's frame cap is
-    /// disabled), so only the audio the notes actually cover is sent.
+    /// Split the phone sequence into chunks of at most
+    /// <paramref name="maxChunkSeconds"/> seconds. Chunk borders fall where
+    /// the singing pauses, because a note is never split.
     /// </summary>
-    static (float[] pcm, int channels, int sampleRate, double originMs) CropRecording(
-        UProject project, UWavePart wavePart, UVoicePart voicePart) {
+    static List<TifaChunk> BuildChunks(TifaSequence sequence, double maxChunkSeconds) {
+        var chunks = new List<TifaChunk>();
+        int firstNote = 0;
+        double startMs = sequence.Notes[0].Phonemes[0].StartMs;
+        double endMs = sequence.Notes[0].Phonemes[^1].EndMs;
+        for (int noteIndex = 1; noteIndex <= sequence.Notes.Count; ++noteIndex) {
+            if (noteIndex < sequence.Notes.Count) {
+                var note = sequence.Notes[noteIndex];
+                double noteStart = note.Phonemes[0].StartMs;
+                double noteEnd = note.Phonemes[^1].EndMs;
+                if (noteEnd - startMs > maxChunkSeconds * 1000.0) {
+                    chunks.Add(MakeChunk(sequence, firstNote, noteIndex, startMs, endMs));
+                    firstNote = noteIndex;
+                    startMs = noteStart;
+                    endMs = noteEnd;
+                    continue;
+                }
+                endMs = Math.Max(endMs, noteEnd);
+                continue;
+            }
+            chunks.Add(MakeChunk(sequence, firstNote, sequence.Notes.Count, startMs, endMs));
+        }
+        return chunks;
+    }
+
+    static TifaChunk MakeChunk(TifaSequence sequence, int firstNote, int endNote,
+        double startMs, double endMs) {
+        var chunk = new TifaChunk { StartMs = startMs, EndMs = endMs };
+        for (int i = 0; i < sequence.Phones.Count; ++i) {
+            int noteIndex = sequence.PhoneNote[i];
+            if (noteIndex < firstNote || noteIndex >= endNote) {
+                continue;
+            }
+            if (chunk.PhoneCount == 0) {
+                chunk.FirstPhone = i;
+            }
+            ++chunk.PhoneCount;
+            chunk.Phones.Add(sequence.Phones[i]);
+        }
+        return chunk;
+    }
+
+    /// <summary>Trimmed recording of the wave part (skip/trim/fades applied).</summary>
+    static (float[] pcm, int channels, int sampleRate, double originMs) TrimmedRecording(
+        UProject project, UWavePart wavePart) {
         var (offsetMs, _, channels, pcm) = wavePart.GetTrimmedSamples(project);
-        int sampleRate = wavePart.sampleRate;
         if (channels <= 0) {
             channels = 1;
         }
-        double startMs = project.timeAxis.TickPosToMsPos(voicePart.position);
-        double endMs = project.timeAxis.TickPosToMsPos(voicePart.End);
-        int startSample = (int)Math.Round((startMs - offsetMs) / 1000.0 * sampleRate) * channels;
-        int endSample = (int)Math.Round((endMs - offsetMs) / 1000.0 * sampleRate) * channels;
+        return (pcm, channels, wavePart.sampleRate, offsetMs);
+    }
+
+    static (float[] pcm, double originMs) Slice(float[] pcm, int channels, int sampleRate,
+        double audioOriginMs, double fromMs, double toMs) {
+        int startSample = (int)Math.Round((fromMs - audioOriginMs) / 1000.0 * sampleRate) * channels;
+        int endSample = (int)Math.Round((toMs - audioOriginMs) / 1000.0 * sampleRate) * channels;
         startSample = Math.Clamp(startSample, 0, pcm.Length);
         endSample = Math.Clamp(endSample, startSample, pcm.Length);
-        var slice = pcm[startSample..endSample];
-        double originMs = offsetMs + (double)startSample / channels / sampleRate * 1000.0;
-        return (slice, channels, sampleRate, originMs);
+        double originMs = audioOriginMs + (double)startSample / channels / sampleRate * 1000.0;
+        return (pcm[startSample..endSample], originMs);
     }
 
     /// <summary>16-bit PCM WAV; the CLI reads wav/flac/mp3 through dr_libs.</summary>
