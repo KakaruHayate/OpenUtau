@@ -164,7 +164,6 @@ public static class TifaPhonemeAligner {
             }
             int noteIndex = sequence.Notes.Count;
             sequence.Notes.Add(note);
-            bool any = false;
             foreach (var unit in units) {
                 // A VC-style phoneme repeats the previous note's tail; drop the
                 // repeated head so the aligner sees the phonetic sequence once.
@@ -180,11 +179,6 @@ public static class TifaPhonemeAligner {
                     sequence.PhoneNote.Add(noteIndex);
                     emitted.Add(phone);
                 }
-                any = true;
-            }
-            if (!any) {
-                sequence.Notes.RemoveAt(sequence.Notes.Count - 1);
-                sequence.Unresolved.Add(string.IsNullOrWhiteSpace(note.Lyric) ? "(empty)" : note.Lyric);
             }
         }
         return sequence;
