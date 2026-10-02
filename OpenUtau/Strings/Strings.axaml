@@ -220,7 +220,7 @@ Do you want to continue by splitting at the nearest position after current playh
   <system:String x:Key="dialogs.transcribe.tifa.notarget">The target track has no notes. Fill in lyrics first.</system:String>
   <system:String x:Key="dialogs.transcribe.tifa.notfound">The TIFA aligner is not installed. Install the tifa-ggml package to align phoneme timing.</system:String>
   <system:String x:Key="dialogs.transcribe.tifa.options">Phoneme Timing (TIFA)</system:String>
-  <system:String x:Key="dialogs.transcribe.tifa.result.body">Aligned {0} of {1} phonemes.{2}</system:String>
+  <system:String x:Key="dialogs.transcribe.tifa.result.body">Aligned {0} of {1} phonemes. Unresolved notes: {2}. Uncertain notes: {3}.</system:String>
   <system:String x:Key="dialogs.transcribe.tifa.result.caption">Phoneme Timing</system:String>
   <system:String x:Key="dialogs.transcribe.tifa.result.lowagreement">The aligner's confidence is low: the lyrics may not match the recording.</system:String>
   <system:String x:Key="dialogs.transcribe.tifa.track">Target Track</system:String>

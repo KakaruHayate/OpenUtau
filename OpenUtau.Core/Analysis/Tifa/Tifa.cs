@@ -358,12 +358,26 @@ public class Tifa {
                 var (slice, sliceOriginMs) = Slice(
                     pcm, channels, sampleRate, audioOriginMs, fromMs, toMs);
                 if (slice.Length == 0) {
+                    // The recording does not cover this chunk (for example the
+                    // wave part starts after the first notes). Zero-width
+                    // placeholders leave the chunk's notes untouched while
+                    // keeping the span list parallel to the phone list.
+                    AddPlaceholders(spans, chunk.PhoneCount);
                     continue;
                 }
                 var output = tifa.Align(chunk.Phones, slice, channels, sampleRate,
                     language, options, token);
                 agreement = Math.Max(agreement, output.Agreement);
                 confidence = Math.Max(confidence, output.Confidence);
+                if (output.Spans.Count != chunk.PhoneCount) {
+                    // The CLI is expected to return one span per phone. If it
+                    // does not, skip this chunk rather than mis-aligning every
+                    // later phone.
+                    Log.Warning("TIFA returned {Spans} spans for {Phones} phones in one chunk; skipping it.",
+                        output.Spans.Count, chunk.PhoneCount);
+                    AddPlaceholders(spans, chunk.PhoneCount);
+                    continue;
+                }
                 // Rebase every span onto the project timeline; the move
                 // computation then works with a zero origin.
                 foreach (var span in output.Spans) {
@@ -372,10 +386,6 @@ public class Tifa {
                         End = (sliceOriginMs + span.End * 1000.0) / 1000.0,
                         Text = span.Text,
                     });
-                }
-                if (spans.Count != chunk.FirstPhone + chunk.PhoneCount) {
-                    throw new InvalidOperationException(
-                        $"The aligner returned {spans.Count} spans for {chunk.FirstPhone + chunk.PhoneCount} phones.");
                 }
             }
             result.Agreement = agreement;
@@ -439,6 +449,14 @@ public class Tifa {
             chunk.Phones.Add(sequence.Phones[i]);
         }
         return chunk;
+    }
+
+    /// <summary>Zero-width spans: the move computation skips them, so the
+    /// phones they stand for keep their current timing.</summary>
+    static void AddPlaceholders(List<TifaInterval> spans, int count) {
+        for (int i = 0; i < count; ++i) {
+            spans.Add(default);
+        }
     }
 
     /// <summary>Trimmed recording of the wave part (skip/trim/fades applied).</summary>

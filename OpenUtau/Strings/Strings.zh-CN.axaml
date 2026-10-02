@@ -218,7 +218,7 @@ OpenUtau 是一个开源项目, 旨在为 UTAU 用户社区提供现代的用户
   <system:String x:Key="dialogs.transcribe.tifa.notarget">目标轨道没有音符。请先填词。</system:String>
   <system:String x:Key="dialogs.transcribe.tifa.notfound">未安装 TIFA 对齐器。请安装 tifa-ggml 扩展包以对齐音素时长。</system:String>
   <system:String x:Key="dialogs.transcribe.tifa.options">音素时长对齐 (TIFA)</system:String>
-  <system:String x:Key="dialogs.transcribe.tifa.result.body">已对齐 {1} 个音素中的 {0} 个。{2}</system:String>
+  <system:String x:Key="dialogs.transcribe.tifa.result.body">已对齐 {1} 个音素中的 {0} 个。未映射音符：{2}，不确定音符：{3}。</system:String>
   <system:String x:Key="dialogs.transcribe.tifa.result.caption">音素时长对齐</system:String>
   <system:String x:Key="dialogs.transcribe.tifa.result.lowagreement">对齐置信度较低：歌词可能与录音不匹配。</system:String>
   <system:String x:Key="dialogs.transcribe.tifa.track">目标轨道</system:String>

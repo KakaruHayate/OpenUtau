@@ -72,7 +72,9 @@ def download(url: str, path: str, attempts: int = 6) -> None:
 
 def package(tag: str, platform: str, cache: str, workdir: str, outdir: str) -> str:
     binary = BINARY.get(platform, "tifa_ggml_cli")
-    archive = os.path.join(cache, f"tifa-cli-{platform}-q4.tar.gz")
+    # The tag is part of the cache key: reusing a bundle from another
+    # release would label the package with the wrong version.
+    archive = os.path.join(cache, f"tifa-cli-{platform}-q4-{tag}.tar.gz")
     download(bundle_url(tag, platform), archive)
 
     extract = os.path.join(workdir, f"extract-{platform}")
@@ -80,6 +82,7 @@ def package(tag: str, platform: str, cache: str, workdir: str, outdir: str) -> s
         shutil.rmtree(extract)
     os.makedirs(extract)
     with tarfile.open(archive) as tar:
+        # filter="data" rejects absolute paths and ".." members.
         tar.extractall(extract, filter="data")
     roots = [os.path.join(extract, name) for name in os.listdir(extract)]
     root = next((r for r in roots if os.path.isdir(r)), extract)
