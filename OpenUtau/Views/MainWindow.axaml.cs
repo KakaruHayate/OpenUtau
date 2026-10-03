@@ -1692,7 +1692,8 @@ namespace OpenUtau.App.Views {
                         var targetTrack = transcribeVm.TifaTargetTrack;
                         var targetPart = targetTrack == null ? null : project.parts
                             .OfType<UVoicePart>()
-                            .FirstOrDefault(p => p.trackNo == targetTrack.TrackNo && p.notes.Count > 0);
+                            .FirstOrDefault(p => p.trackNo == targetTrack.TrackNo && p.notes.Count > 0
+                                && p.position < wavePart.End && p.End > wavePart.position);
                         if (targetTrack == null || targetPart == null) {
                             throw new InvalidOperationException(
                                 ThemeManager.GetString("dialogs.transcribe.tifa.notarget"));
