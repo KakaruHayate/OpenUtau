@@ -142,12 +142,19 @@ namespace OpenUtau.Core {
 
         private static readonly DmlScope NoDmlScope = new DmlScope(false);
 
-        /// <summary>Takes <see cref="DmlLock"/> while the DirectML runner is selected, and does
-        /// nothing otherwise. DirectML session creation, Run and disposal must stay inside it.</summary>
+        /// <summary>Set when DirectML is or was in use in this process. Sessions are cached and
+        /// stay on DirectML even after the preference moves to CPU, so the lock has to stay
+        /// engaged for them; a process that never used DirectML keeps the no-op scope.</summary>
+        private static volatile bool dmlInUse;
+
+        /// <summary>Takes <see cref="DmlLock"/> while DirectML session creation, Run or disposal
+        /// can happen, which is while the DirectML runner is selected or once a DirectML session
+        /// exists. DirectML session creation, Run and disposal must stay inside it.</summary>
         public static IDisposable EnterDmlScope() {
-            if (!IsDmlRunner()) {
+            if (!IsDmlRunner() && !dmlInUse) {
                 return NoDmlScope;
             }
+            dmlInUse = true;
             System.Threading.Monitor.Enter(DmlLock);
             return new DmlScope(true);
         }
@@ -158,6 +165,9 @@ namespace OpenUtau.Core {
             if (!IsDmlRunner()) {
                 return withProvider();
             }
+            // Before creating: whatever later runs on that session must keep the lock even if the
+            // preference switches to CPU while the session is cached.
+            dmlInUse = true;
             lock (DmlLock) {
                 try {
                     return withProvider();
