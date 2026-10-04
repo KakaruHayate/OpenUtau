@@ -93,6 +93,35 @@ public class TifaTextGridTest {
         """;
 
     [Fact]
+    public void DropsGapIntervalsAddedByNewerClis() {
+        var withGaps = new List<TifaInterval> {
+            new TifaInterval { Start = 0.00, End = 0.04, Text = "y" },
+            new TifaInterval { Start = 0.04, End = 0.28, Text = "iao" },
+            new TifaInterval { Start = 0.28, End = 0.42, Text = "SP" },
+            new TifaInterval { Start = 0.42, End = 1.00, Text = "van" },
+        };
+        var phones = TifaTextGrid.DropGapIntervals(withGaps, 3);
+        Assert.Equal(3, phones.Count);
+        Assert.Equal(new[] { "y", "iao", "van" }, phones.Select(p => p.Text));
+
+        // A tier that already matches the phone list is left alone, even if a
+        // real phone happens to carry the filler label.
+        var exact = new List<TifaInterval> {
+            new TifaInterval { Start = 0, End = 1, Text = "a" },
+            new TifaInterval { Start = 1, End = 2, Text = "SP" },
+        };
+        Assert.Same(exact, TifaTextGrid.DropGapIntervals(exact, 2));
+
+        // Unrelated extra intervals are not silently dropped.
+        var odd = new List<TifaInterval> {
+            new TifaInterval { Start = 0, End = 1, Text = "a" },
+            new TifaInterval { Start = 1, End = 2, Text = "b" },
+            new TifaInterval { Start = 2, End = 3, Text = "SP" },
+        };
+        Assert.Equal(3, TifaTextGrid.DropGapIntervals(odd, 1).Count);
+    }
+
+    [Fact]
     public void ParsesPhonesTierInOrder() {
         string path = Path.Combine(Path.GetTempPath(), $"tifa-test-{Guid.NewGuid():N}.TextGrid");
         try {

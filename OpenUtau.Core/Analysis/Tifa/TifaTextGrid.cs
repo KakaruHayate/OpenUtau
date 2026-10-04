@@ -21,6 +21,31 @@ public struct TifaInterval {
 /// phone list passed in.
 /// </summary>
 public static class TifaTextGrid {
+    /// <summary>Default label of the intervals the CLI inserts for stretches
+    /// no phone covers (<c>--fill-gaps</c>). No OpenUtau phonemizer produces
+    /// this symbol, so it identifies filler unambiguously.</summary>
+    public const string GapLabel = "SP";
+
+    /// <summary>
+    /// tifa.cpp v0.1.5 fills the holes in every tier with an interval labelled
+    /// by <c>--fill-gaps</c>, so the phones tier holds more intervals than the
+    /// phone list. Drop those fillers when that makes the counts line up;
+    /// otherwise return the input unchanged (older CLIs emit the phones only).
+    /// </summary>
+    public static List<TifaInterval> DropGapIntervals(List<TifaInterval> spans, int phoneCount) {
+        if (spans.Count == phoneCount) {
+            return spans;
+        }
+        var filtered = new List<TifaInterval>(spans.Count);
+        foreach (var span in spans) {
+            if (string.Equals(span.Text?.Trim(), GapLabel, StringComparison.Ordinal)) {
+                continue;
+            }
+            filtered.Add(span);
+        }
+        return filtered.Count == phoneCount ? filtered : spans;
+    }
+
     public static double ParseXmax(string path) {
         foreach (var line in File.ReadLines(path)) {
             var trimmed = line.Trim();

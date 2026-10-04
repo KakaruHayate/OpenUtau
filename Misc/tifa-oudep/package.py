@@ -2,20 +2,29 @@
 """Build the OpenUtau .oudep packages for the TIFA forced aligner.
 
 The aligner itself is tifa.cpp; its releases already ship self-contained
-CLI bundles (binary, ggml runtime libraries, quantized GGUF model and the
-syllable dictionaries). This script only repacks one of those bundles into
-OpenUtau's dependency format:
+CLI bundles. This script repacks one of those bundles into OpenUtau's
+dependency format:
 
     tifa-ggml-<platform>-q4.oudep   (flat zip)
       oudep.yaml      package manifest, OpenUtau extracts to Dependencies/<id>
       config.json     platform tag + model path used by OpenUtau.Core
       tifa_ggml_cli   the CLI (tifa_ggml_cli.exe on Windows)
       libggml*.so*    runtime libraries for the platform
-      models/         tifa.gguf and dictionaries
+      models/tifa.gguf
+
+A CLI bundle also carries weights and tables OpenUtau never reads, so they
+are dropped by default:
+
+* breath/AP detector weights - the `breathe` subcommand belongs to
+  tifa.cpp's dataset workflow (align -> breathe --merge -> align).
+* the English LSTM G2P and the text G2P dictionaries - OpenUtau always
+  passes an explicit phone list, so the CLI never builds a G2P pipeline.
+
+Pass --keep-all to package the bundle verbatim.
 
 Usage:
-    python package.py --tag v0.1.3 --out dist
-    python package.py --tag v0.1.3 --platforms windows-x64 linux-x64
+    python package.py --tag v0.1.5 --out dist
+    python package.py --tag v0.1.5 --platforms windows-x64 linux-x64
 
 Only the q4 variant is packaged: it is ~2.5x smaller than f16 and the
 quantization study in tifa.cpp reports the same onset error.
@@ -33,9 +42,10 @@ import zipfile
 
 REPO = "KakaruHayate/tifa.cpp"
 PACKAGE_ID = "tifa-ggml"
-VERSION = {"v0.1.3": "0.1.3"}
 DEFAULT_PLATFORMS = ["windows-x64", "linux-x64", "macos-arm64"]
 BINARY = {"windows-x64": "tifa_ggml_cli.exe"}
+# The only file in models/ the align path loads.
+MODEL_FILE = "tifa.gguf"
 
 OUDEP_YAML = """id: {id}
 version: {version}
@@ -70,7 +80,26 @@ def download(url: str, path: str, attempts: int = 6) -> None:
     raise SystemExit(f"could not download {url}")
 
 
-def package(tag: str, platform: str, cache: str, workdir: str, outdir: str) -> str:
+def trim_bundle(root: str) -> list:
+    """Drop everything under models/ except the aligner weights."""
+    models = os.path.join(root, "models")
+    if not os.path.isdir(models):
+        return []
+    removed = []
+    for name in sorted(os.listdir(models)):
+        if name == MODEL_FILE:
+            continue
+        path = os.path.join(models, name)
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.remove(path)
+        removed.append(name)
+    return removed
+
+
+def package(tag: str, platform: str, cache: str, workdir: str, outdir: str,
+            keep_all: bool = False) -> str:
     binary = BINARY.get(platform, "tifa_ggml_cli")
     # The tag is part of the cache key: reusing a bundle from another
     # release would label the package with the wrong version.
@@ -88,8 +117,13 @@ def package(tag: str, platform: str, cache: str, workdir: str, outdir: str) -> s
     root = next((r for r in roots if os.path.isdir(r)), extract)
     if not os.path.exists(os.path.join(root, binary)):
         raise SystemExit(f"{binary} not found in {root}")
+    if not os.path.exists(os.path.join(root, "models", MODEL_FILE)):
+        raise SystemExit(f"models/{MODEL_FILE} not found in {root}")
+    if not keep_all:
+        removed = trim_bundle(root)
+        print(f"  trimmed {', '.join(removed) if removed else 'nothing'}")
 
-    version = VERSION.get(tag, tag.lstrip("v"))
+    version = tag.lstrip("v")
     with open(os.path.join(root, "oudep.yaml"), "w", encoding="utf-8", newline="\n") as f:
         f.write(OUDEP_YAML.format(id=PACKAGE_ID, version=version, tag=tag,
                                   platform=platform, binary=binary))
@@ -118,6 +152,8 @@ def main() -> None:
     parser.add_argument("--platforms", nargs="+", default=DEFAULT_PLATFORMS)
     parser.add_argument("--out", default="dist", help="output directory (default: dist)")
     parser.add_argument("--cache", default="", help="download cache (default: <out>/cache)")
+    parser.add_argument("--keep-all", action="store_true",
+                        help="package the whole tifa.cpp bundle instead of trimming")
     args = parser.parse_args()
 
     outdir = os.path.abspath(args.out)
@@ -128,7 +164,7 @@ def main() -> None:
     try:
         for platform in args.platforms:
             print(f"{platform}:")
-            path = package(args.tag, platform, cache, workdir, outdir)
+            path = package(args.tag, platform, cache, workdir, outdir, args.keep_all)
             print(f"  {os.path.basename(path)}  {os.path.getsize(path) / 1e6:.1f} MB")
     finally:
         shutil.rmtree(workdir, ignore_errors=True)

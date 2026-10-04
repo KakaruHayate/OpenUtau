@@ -259,7 +259,8 @@ public class Tifa {
                     $"tifa_ggml_cli produced no TextGrid. {detail}");
             }
             var output = new TifaAlignOutput {
-                Spans = TifaTextGrid.ParseTier(textGridPath, "phones"),
+                Spans = TifaTextGrid.DropGapIntervals(
+                    TifaTextGrid.ParseTier(textGridPath, "phones"), phones.Count),
             };
             ReadDiagnosis(Path.Combine(workDir, "input.diagnosis.json"), output);
             return output;
