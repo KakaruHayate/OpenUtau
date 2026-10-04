@@ -120,6 +120,54 @@ namespace OpenUtau.Core {
             return getRunner() == "CPU";
         }
 
+        /// <summary>Serializes DirectML session creation, inference and disposal. The Windows
+        /// DirectML build of ONNX Runtime kills the process natively when those overlap, and the
+        /// package is frozen at 1.24.4, so the ORT-side fixes will never ship as an upgrade.</summary>
+        public static readonly object DmlLock = new object();
+
+        /// <summary>Whether sessions created now run on the DirectML execution provider.</summary>
+        public static bool IsDmlRunner() {
+            return getRunner() == "DirectML";
+        }
+
+        private readonly struct DmlScope : IDisposable {
+            private readonly bool engaged;
+            public DmlScope(bool engaged) { this.engaged = engaged; }
+            public void Dispose() {
+                if (engaged) {
+                    System.Threading.Monitor.Exit(DmlLock);
+                }
+            }
+        }
+
+        private static readonly DmlScope NoDmlScope = new DmlScope(false);
+
+        /// <summary>Takes <see cref="DmlLock"/> while the DirectML runner is selected, and does
+        /// nothing otherwise. DirectML session creation, Run and disposal must stay inside it.</summary>
+        public static IDisposable EnterDmlScope() {
+            if (!IsDmlRunner()) {
+                return NoDmlScope;
+            }
+            System.Threading.Monitor.Enter(DmlLock);
+            return new DmlScope(true);
+        }
+
+        /// <summary>Creates a session with the selected execution provider. A DirectML failure
+        /// falls back to CPU: the DML graph compiler rejects some models it cannot run.</summary>
+        private static InferenceSession createSession(Func<InferenceSession> withProvider, Func<InferenceSession> cpu) {
+            if (!IsDmlRunner()) {
+                return withProvider();
+            }
+            lock (DmlLock) {
+                try {
+                    return withProvider();
+                } catch (Exception e) {
+                    Log.Warning(e, "Failed to create a DirectML inference session, falling back to CPU.");
+                    return cpu();
+                }
+            }
+        }
+
         private static SessionOptions getOnnxSessionOptions(bool coremlEnableOnSubgraphs = false) {
             SessionOptions options = new SessionOptions();
             string runner = getRunner();
@@ -166,7 +214,9 @@ namespace OpenUtau.Core {
                         Log.Warning(e, "Failed to create session with CoreML subgraphs enabled, falling back to default settings");
                     }
                 }
-                return new InferenceSession(model, getOnnxSessionOptions());
+                return createSession(
+                    () => new InferenceSession(model, getOnnxSessionOptions()),
+                    () => new InferenceSession(model));
             }
         }
 
@@ -183,7 +233,9 @@ namespace OpenUtau.Core {
                         Log.Warning(e, "Failed to create session with CoreML subgraphs enabled, falling back to default settings");
                     }
                 }
-                return new InferenceSession(modelPath, getOnnxSessionOptions());
+                return createSession(
+                    () => new InferenceSession(modelPath, getOnnxSessionOptions()),
+                    () => new InferenceSession(modelPath));
             }
         }
 
