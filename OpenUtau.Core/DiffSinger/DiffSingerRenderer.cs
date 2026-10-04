@@ -102,6 +102,9 @@ namespace OpenUtau.Core.DiffSinger {
         public Task<RenderResult> Render(RenderPhrase phrase, Progress progress, int trackNo, CancellationTokenSource cancellation, bool isPreRender, RenderPhraseEvents? renderEvents = null) {
             var task = Task.Run(() => {
                 lock (lockObj) {
+                    // The static lock serializes DiffSinger renders; the DirectML scope additionally
+                    // keeps them from overlapping pitch/variance work or session disposal.
+                    using var dmlScope = Onnx.EnterDmlScope();
                     if (cancellation.IsCancellationRequested) {
                         return new RenderResult();
                     }
@@ -537,6 +540,7 @@ namespace OpenUtau.Core.DiffSinger {
             if (!singer.HasPitchPredictor) {
                 throw new Exception("This singer has no pitch predictor.");
             }
+            using var dmlScope = Onnx.EnterDmlScope();
             var pitchPredictor = singer.getPitchPredictor()!;
             lock (singer.SessionLock) {
                 return pitchPredictor.Process(phrase, pitchSteps, fastRealtime);
@@ -562,6 +566,7 @@ namespace OpenUtau.Core.DiffSinger {
             if (!singer.HasPitchPredictor) {
                 throw new Exception("This singer has no pitch predictor.");
             }
+            using var dmlScope = Onnx.EnterDmlScope();
             var pitchPredictor = singer.getPitchPredictor()!;
             var noteRelativePositions = new int[phrase.notes.Length];
             for (int i = 0; i < phrase.notes.Length; i++) {
@@ -598,6 +603,7 @@ namespace OpenUtau.Core.DiffSinger {
             if (!singer.HasVariancePredictor) {
                 return new List<RenderRealCurveResult>(0);
             }
+            using var dmlScope = Onnx.EnterDmlScope();
             var variancePredictor = singer.getVariancePredictor()!;
             lock (singer.SessionLock) {
                 var result = variancePredictor.Process(phrase);
