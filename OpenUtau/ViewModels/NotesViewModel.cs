@@ -333,7 +333,7 @@ namespace OpenUtau.App.ViewModels {
             HitTest = new NotesViewModelHitTest(this);
             DocManager.Inst.AddSubscriber(this);
 
-            this.WhenAnyValue(x => x.Part)
+            ObservableMixins.WhereNotNull(this.WhenAnyValue(x => x.Part))
                 .Subscribe(p => {
                     MessageBus.Current.SendMessage(new PianoRollOpenPartChangedEvent(p));
                     PublishPianoRollViewport();
@@ -1170,7 +1170,9 @@ namespace OpenUtau.App.ViewModels {
                 return true;
             }
             if (track.TryGetExpDescriptor(Project, expKey, out var descriptor)) {
-                return track.RendererSettings.Renderer.SupportsExpression(descriptor);
+                // Masked curves are for expression graphs, which read them whatever the renderer.
+                return descriptor.type == UExpressionType.MaskedCurve
+                    || track.RendererSettings.Renderer.SupportsExpression(descriptor);
             }
             if (expKey == track.VoiceColorExp.abbr) {
                 return track.RendererSettings.Renderer.SupportsExpression(track.VoiceColorExp);

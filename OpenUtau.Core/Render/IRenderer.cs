@@ -96,8 +96,9 @@ namespace OpenUtau.Core.Render {
     /// </summary>
     public interface IRenderer {
         USingerType SingerType { get; }
-        bool SupportsRenderPitch { get; }
-        bool SupportsRealCurve { get { return false; } }
+        bool SupportsRenderPitch => false;
+        bool SupportsRealCurve => false;
+        bool SupportsPhonemeEnvelope => true;
         bool SupportsExpression(UExpressionDescriptor descriptor);
         RenderResult Layout(RenderPhrase phrase);
 
@@ -135,5 +136,11 @@ namespace OpenUtau.Core.Render {
         List<RenderRealCurveResult> LoadRenderedRealCurves(RenderPhrase phrase) { return new List<RenderRealCurveResult>(0);}
         void ScheduleRealCurveRefresh(UProject project, UVoicePart part, UCommand command) { }
         UExpressionDescriptor[] GetSuggestedExpressions(USinger singer, URenderSettings renderSettings);
+
+        /// <summary>
+        /// The renderer id whose expression graphs this renderer uses: its own by default.
+        /// Renderers that render the same expressions can share one slot.
+        /// </summary>
+        string ExpressionGraphSlot => ToString()!;
     }
 }
