@@ -125,67 +125,9 @@ namespace OpenUtau.Core {
         /// package is frozen at 1.24.4, so the ORT-side fixes will never ship as an upgrade.</summary>
         public static readonly object DmlLock = new object();
 
-        /// <summary>Written while DirectML session work is in flight. If it still exists at the
-        /// next start, the previous run died inside DirectML - a native crash no in-process
-        /// handler can survive - so the runner falls back to CPU for that machine.</summary>
-        private static readonly string dmlCrashMarkerPath = Path.Combine(PathManager.Inst.DataPath, "dml-crash.marker");
-
-        private static bool dmlCrashMarkerChecked;
-        private static int dmlScopeDepth;
-
-        /// <summary>Set when a previous run crashed inside DirectML work and the runner was
-        /// switched to CPU automatically.</summary>
-        public static bool DmlAutoDisabled { get; private set; }
-
         /// <summary>Whether sessions created now run on the DirectML execution provider.</summary>
         public static bool IsDmlRunner() {
-            return !DmlAutoDisabled && getRunner() == "DirectML";
-        }
-
-        /// <summary>If the previous run died inside DirectML work, switch the runner to CPU and
-        /// say so. Runs once per process, before the first DirectML use.</summary>
-        private static void CheckDmlCrashMarker() {
-            if (dmlCrashMarkerChecked) {
-                return;
-            }
-            dmlCrashMarkerChecked = true;
-            try {
-                if (!File.Exists(dmlCrashMarkerPath)) {
-                    return;
-                }
-                File.Delete(dmlCrashMarkerPath);
-                if (getRunner() == "DirectML") {
-                    Preferences.Default.OnnxRunner = "CPU";
-                    Preferences.Save();
-                    DmlAutoDisabled = true;
-                    Log.Error("The previous run terminated while DirectML work was in flight, which no in-process handler can survive; the ONNX runner has been switched to CPU and can be switched back in Preferences.");
-                    try {
-                        DocManager.Inst.ExecuteCmd(new ToastNotification("MainWindow",
-                            "DirectML crashed during the previous session; the ONNX runner was switched to CPU.",
-                            "The previous session ended while DirectML was working, which crashes this machine. The ONNX runner has been switched to CPU; it can be switched back in Preferences.", null));
-                    } catch (Exception e) {
-                        Log.Warning(e, "Failed to publish the DirectML fallback toast.");
-                    }
-                }
-            } catch (Exception e) {
-                Log.Warning(e, "Failed to process the DirectML crash marker.");
-            }
-        }
-
-        private static void WriteDmlCrashMarker() {
-            try {
-                File.WriteAllText(dmlCrashMarkerPath, DateTime.Now.ToString("O"));
-            } catch (Exception e) {
-                Log.Warning(e, "Failed to write the DirectML crash marker.");
-            }
-        }
-
-        private static void DeleteDmlCrashMarker() {
-            try {
-                File.Delete(dmlCrashMarkerPath);
-            } catch (Exception e) {
-                Log.Warning(e, "Failed to clear the DirectML crash marker.");
-            }
+            return getRunner() == "DirectML";
         }
 
         private readonly struct DmlScope : IDisposable {
@@ -193,9 +135,6 @@ namespace OpenUtau.Core {
             public DmlScope(bool engaged) { this.engaged = engaged; }
             public void Dispose() {
                 if (engaged) {
-                    if (--dmlScopeDepth == 0) {
-                        DeleteDmlCrashMarker();
-                    }
                     System.Threading.Monitor.Exit(DmlLock);
                 }
             }
@@ -212,23 +151,17 @@ namespace OpenUtau.Core {
         /// can happen, which is while the DirectML runner is selected or once a DirectML session
         /// exists. DirectML session creation, Run and disposal must stay inside it.</summary>
         public static IDisposable EnterDmlScope() {
-            CheckDmlCrashMarker();
             if (!IsDmlRunner() && !dmlInUse) {
                 return NoDmlScope;
             }
             dmlInUse = true;
             System.Threading.Monitor.Enter(DmlLock);
-            dmlScopeDepth++;
-            if (dmlScopeDepth == 1) {
-                WriteDmlCrashMarker();
-            }
             return new DmlScope(true);
         }
 
         /// <summary>Creates a session with the selected execution provider. A DirectML failure
         /// falls back to CPU: the DML graph compiler rejects some models it cannot run.</summary>
         private static InferenceSession createSession(Func<InferenceSession> withProvider, Func<InferenceSession> cpu) {
-            CheckDmlCrashMarker();
             if (!IsDmlRunner()) {
                 return withProvider();
             }
@@ -236,19 +169,11 @@ namespace OpenUtau.Core {
             // preference switches to CPU while the session is cached.
             dmlInUse = true;
             lock (DmlLock) {
-                dmlScopeDepth++;
-                if (dmlScopeDepth == 1) {
-                    WriteDmlCrashMarker();
-                }
                 try {
                     return withProvider();
                 } catch (Exception e) {
                     Log.Warning(e, "Failed to create a DirectML inference session, falling back to CPU.");
                     return cpu();
-                } finally {
-                    if (--dmlScopeDepth == 0) {
-                        DeleteDmlCrashMarker();
-                    }
                 }
             }
         }
