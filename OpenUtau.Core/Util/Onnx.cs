@@ -151,12 +151,21 @@ namespace OpenUtau.Core {
         /// can happen, which is while the DirectML runner is selected or once a DirectML session
         /// exists. DirectML session creation, Run and disposal must stay inside it.</summary>
         public static IDisposable EnterDmlScope() {
-            if (!IsDmlRunner() && !dmlInUse) {
-                return NoDmlScope;
-            }
-            dmlInUse = true;
+            // Lock first, then re-check the runner: a CPU->DirectML switch can land while this
+            // thread is waiting on the lock, and a scope handed out as a no-op cannot be upgraded
+            // afterwards, which would leave the following DirectML work outside the lock.
             System.Threading.Monitor.Enter(DmlLock);
-            return new DmlScope(true);
+            try {
+                if (!IsDmlRunner() && !dmlInUse) {
+                    System.Threading.Monitor.Exit(DmlLock);
+                    return NoDmlScope;
+                }
+                dmlInUse = true;
+                return new DmlScope(true);
+            } catch {
+                System.Threading.Monitor.Exit(DmlLock);
+                throw;
+            }
         }
 
         /// <summary>Creates a session with the selected execution provider. A DirectML failure
