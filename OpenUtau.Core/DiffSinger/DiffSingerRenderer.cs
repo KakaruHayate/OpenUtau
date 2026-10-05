@@ -541,9 +541,9 @@ namespace OpenUtau.Core.DiffSinger {
                 throw new Exception("This singer has no pitch predictor.");
             }
             using var dmlScope = Onnx.EnterDmlScope();
-            var pitchPredictor = singer.getPitchPredictor()!;
+            // Use the reference inside SessionLock so a concurrent FreeMemory cannot dispose it first.
             lock (singer.SessionLock) {
-                return pitchPredictor.Process(phrase, pitchSteps, fastRealtime);
+                return singer.getPitchPredictor()!.Process(phrase, pitchSteps, fastRealtime);
             }
         }
 
@@ -567,26 +567,25 @@ namespace OpenUtau.Core.DiffSinger {
                 throw new Exception("This singer has no pitch predictor.");
             }
             using var dmlScope = Onnx.EnterDmlScope();
-            var pitchPredictor = singer.getPitchPredictor()!;
             var noteRelativePositions = new int[phrase.notes.Length];
             for (int i = 0; i < phrase.notes.Length; i++) {
                 noteRelativePositions[i] = phrase.notes[i].position;
             }
             var retakeNoteIndexes = DiffSingerRetake.MapSelectedPositionsToNoteIndexes(
                 phrase.position, noteRelativePositions, selectedNotePositions);
-            if (retakeNoteIndexes.Count == 0 || retakeNoteIndexes.Count == phrase.notes.Length) {
-                lock (singer.SessionLock) {
+            // Use the reference inside SessionLock so a concurrent FreeMemory cannot dispose it first.
+            lock (singer.SessionLock) {
+                var pitchPredictor = singer.getPitchPredictor()!;
+                if (retakeNoteIndexes.Count == 0 || retakeNoteIndexes.Count == phrase.notes.Length) {
                     return pitchPredictor.Process(phrase, pitchSteps, fastRealtime);
                 }
-            }
-            var frameMs = pitchPredictor.FrameMs;
-            int headFrames = DiffSingerUtils.headFrames;
-            int tailFrames = DiffSingerUtils.tailFrames;
-            var ph_dur = DiffSingerUtils.PaddedPhoneDurations(phrase, frameMs, headFrames, tailFrames);
-            int totalFrames = ph_dur.Sum();
-            var existingPitch = DiffSingerUtils.SampleCurve(phrase, phrase.pitches, 0, frameMs, totalFrames, headFrames, tailFrames,
-                x => x * 0.01).Select(f => (float)f).ToArray();
-            lock (singer.SessionLock) {
+                var frameMs = pitchPredictor.FrameMs;
+                int headFrames = DiffSingerUtils.headFrames;
+                int tailFrames = DiffSingerUtils.tailFrames;
+                var ph_dur = DiffSingerUtils.PaddedPhoneDurations(phrase, frameMs, headFrames, tailFrames);
+                int totalFrames = ph_dur.Sum();
+                var existingPitch = DiffSingerUtils.SampleCurve(phrase, phrase.pitches, 0, frameMs, totalFrames, headFrames, tailFrames,
+                    x => x * 0.01).Select(f => (float)f).ToArray();
                 return pitchPredictor.Process(phrase, pitchSteps, fastRealtime, retakeNoteIndexes, existingPitch);
             }
         }
@@ -604,9 +603,9 @@ namespace OpenUtau.Core.DiffSinger {
                 return new List<RenderRealCurveResult>(0);
             }
             using var dmlScope = Onnx.EnterDmlScope();
-            var variancePredictor = singer.getVariancePredictor()!;
+            // Use the reference inside SessionLock so a concurrent FreeMemory cannot dispose it first.
             lock (singer.SessionLock) {
-                var result = variancePredictor.Process(phrase);
+                var result = singer.getVariancePredictor()!.Process(phrase);
                 return BuildRenderedRealCurves(phrase, result);
             }
         }
