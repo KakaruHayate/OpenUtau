@@ -1,0 +1,257 @@
+# Test builds with a deliberately marked version.
+#
+# Official releases come from upstream's build.yml and use 0.1.x.N, where N
+# counts the alphas of that patch (so upstream's current alpha is 0.1.572.1).
+# Builds from this workflow keep the same 0.1.x patch base and put the fork
+# marker in the 4th component: the revision is revision_base + run_number
+# (9000 by default), so the title bar reads "OpenUtau v0.1.572.9013 (alpha)".
+# The result still parses as an alpha (4th component > 0), sorts above the
+# official alphas of the same base, and 9xxx can never collide with their
+# counters, which stay small.
+#
+# Every platform upstream's build.yml ships is built here (win-x64, win-arm64,
+# osx-arm64, linux-x64, linux-arm64), each carrying the same marked version,
+# so a marked build can be handed to users on any OS.
+name: Build (marked version)
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag or SHA to build"
+        default: master
+        required: true
+        type: string
+      version_prefix:
+        description: "First three components, i.e. upstream's patch base. Bump when upstream moves on."
+        default: "0.1.572"
+        required: true
+        type: string
+      revision_base:
+        description: "Added to the run number to form the 4th component; 9xxx marks a fork build"
+        default: "9000"
+        required: true
+        type: string
+      release:
+        description: "Also publish a release carrying the files"
+        default: false
+        type: boolean
+
+concurrency:
+  group: build-marked-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      sha: ${{ steps.ver.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+      - name: Resolve version
+        id: ver
+        run: |
+          revision=$(( ${{ inputs.revision_base || 9000 }} + ${{ github.run_number }} ))
+          version="${{ inputs.version_prefix || '0.1.572' }}.$revision"
+          sha=$(git rev-parse --short=8 HEAD)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "OpenUtau $version (commit $sha)" >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    needs: version
+    runs-on: ${{ matrix.arch.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - { name: win-x64, rid: win-x64, arch: x64, os: win, runs-on: windows-latest }
+          - { name: win-arm64, rid: win-arm64, arch: arm64, os: win, runs-on: windows-latest }
+          - { name: osx-arm64, rid: osx-arm64, arch: arm64, os: osx, runs-on: macos-latest }
+          - { name: linux-x64, rid: linux-x64, arch: x64, os: linux, runs-on: ubuntu-latest, linuxarch: x86_64 }
+          - { name: linux-arm64, rid: linux-arm64, arch: arm64, os: linux, runs-on: ubuntu-latest, linuxarch: aarch64 }
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            6.0.x
+            8.0.x
+            10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: repolevedavaj/install-nsis@v1
+        with:
+          nsis-version: '3.11'
+        if: ${{ matrix.arch.os == 'win' }}
+      # Stamps the version into OpenUtau.csproj; the 4th component is what
+      # ReleaseChannel.FromVersion reads to label the build as alpha.
+      - uses: justalemon/VersionPatcher@v0.7.1
+        with:
+          version: ${{ needs.version.outputs.version }}
+          csproj-files: "OpenUtau/*.csproj"
+
+      # xunit.v3 runs on Microsoft.Testing.Platform, whose VSTest path the
+      # .NET 10 SDK dropped; run the test project directly instead.
+      # Same fix as upstream PR #2420.
+      - name: Test
+        run: dotnet run --project OpenUtau.Test/OpenUtau.Test.csproj
+
+      - name: Restore
+        run: dotnet restore OpenUtau -r ${{ matrix.arch.rid }}
+
+      - name: Build (Windows and Linux)
+        run: dotnet publish OpenUtau -c Release -r ${{ matrix.arch.rid }} --self-contained true -o bin/${{ matrix.arch.name }}/
+        if: ${{ matrix.arch.os != 'osx' }}
+
+      - name: Build (MacOS)
+        run: dotnet msbuild OpenUtau -t:BundleApp -p:Configuration=Release -p:RuntimeIdentifier=${{ matrix.arch.rid }} -p:UseAppHost=true -p:SelfContained=true -p:OutputPath=../bin/${{ matrix.arch.name }}/
+        if: ${{ matrix.arch.os == 'osx' }}
+
+      - name: Add Liquid Glass icon (macOS)
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.2.app
+          chmod +x .github/scripts/add-liquid-glass-icon.sh
+          .github/scripts/add-liquid-glass-icon.sh \
+            bin/${{ matrix.arch.name }}/publish/OpenUtau.app \
+            OpenUtau/Assets/OpenUtau.icon \
+            OpenUtau
+        if: ${{ matrix.arch.os == 'osx' }}
+
+      - name: Write release channel info
+        run: "@{Channel='alpha'} | ConvertTo-Json > bin/${{ matrix.arch.name }}/prefs-default.json"
+        shell: pwsh
+
+      - name: DirectML
+        shell: cmd
+        run: |
+          curl -L https://www.nuget.org/api/v2/package/Microsoft.AI.DirectML/1.15.4 -o Microsoft.AI.DirectML.nupkg
+          mkdir Microsoft.AI.DirectML
+          tar -xf Microsoft.AI.DirectML.nupkg -C Microsoft.AI.DirectML
+          copy /y Microsoft.AI.DirectML\bin\${{ matrix.arch.arch }}-${{ matrix.arch.os }}\DirectML.dll bin\${{ matrix.arch.name }}\
+        if: ${{ matrix.arch.os == 'win' }}
+
+      - name: Set executable permission
+        run: chmod +x bin/${{ matrix.arch.name }}/OpenUtau
+        if: ${{ matrix.arch.os == 'linux' }}
+
+      - name: Zip
+        run: |
+          cd bin/${{ matrix.arch.name }}
+          7z a ../../OpenUtau-${{ matrix.arch.name }}.zip *
+        if: ${{ matrix.arch.os == 'win' }}
+
+      - name: Tar.gz
+        run: |
+          cd bin/${{ matrix.arch.name }}
+          tar -czf ../../OpenUtau-${{ matrix.arch.name }}.tar.gz *
+        if: ${{ matrix.arch.os == 'linux' }}
+
+      - name: Get VC Redist
+        run: curl https://aka.ms/vs/17/release/vc_redist.${{ matrix.arch.arch }}.exe -o vc_redist.${{ matrix.arch.arch }}.exe
+        if: ${{ matrix.arch.os == 'win' }}
+
+      - name: Create Installer
+        uses: joncloud/makensis-action@v4.1
+        with:
+          script-file: OpenUtau.nsi
+          arguments: "-DPRODUCT_VERSION=${{ needs.version.outputs.version }} -DARCH=${{ matrix.arch.arch }}"
+        if: ${{ matrix.arch.os == 'win' }}
+
+      - name: Create Dmg
+        run: |
+          npm install -g create-dmg
+          cp OpenUtau/Assets/OpenUtau.icns bin/${{ matrix.arch.name }}/publish/OpenUtau.app/Contents/Resources/
+          create-dmg bin/${{ matrix.arch.name }}/publish/OpenUtau.app || true
+          mv *.dmg OpenUtau-${{ matrix.arch.name }}.dmg
+          codesign -fvs - OpenUtau-${{ matrix.arch.name }}.dmg
+        if: ${{ matrix.arch.os == 'osx' }}
+
+      - name: Install LinuxDeploy
+        uses: AnimMouse/setup-appimage@v1
+        with:
+          name: linuxdeploy
+          url: https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+        if: ${{ matrix.arch.os == 'linux' }}
+
+      - name: Create appimage
+        run: |
+          cp OpenUtau/Assets/OpenUtau.desktop bin/${{ matrix.arch.name }}
+          cp OpenUtau/Assets/OpenUtau.png bin/${{ matrix.arch.name }}
+          cp OpenUtau/Assets/OpenUtau.png bin/${{ matrix.arch.name }}/.DirIcon
+          cp OpenUtau/Assets/AppRun bin/${{ matrix.arch.name }}
+          chmod 755 bin/${{ matrix.arch.name }}/AppRun
+          ARCH=${{ matrix.arch.linuxarch }} linuxdeploy --appdir bin/${{ matrix.arch.name }} --output appimage
+          # linuxdeploy names the output by linux arch (OpenUtau-x86_64.AppImage);
+          # rename to the matrix name so artifact, file, and release all match.
+          mv OpenUtau-${{ matrix.arch.linuxarch }}.AppImage OpenUtau-${{ matrix.arch.name }}.AppImage
+        if: ${{ matrix.arch.os == 'linux' }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenUtau-${{ matrix.arch.name }}-${{ needs.version.outputs.version }}.zip
+          path: OpenUtau-${{ matrix.arch.name }}.zip
+        if: ${{ matrix.arch.os == 'win' }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenUtau-${{ matrix.arch.name }}-${{ needs.version.outputs.version }}.exe
+          path: OpenUtau-${{ matrix.arch.name }}.exe
+        if: ${{ matrix.arch.os == 'win' }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenUtau-${{ matrix.arch.name }}-${{ needs.version.outputs.version }}.dmg
+          path: OpenUtau-${{ matrix.arch.name }}.dmg
+        if: ${{ matrix.arch.os == 'osx' }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenUtau-${{ matrix.arch.name }}-${{ needs.version.outputs.version }}.tar.gz
+          path: OpenUtau-${{ matrix.arch.name }}.tar.gz
+        if: ${{ matrix.arch.os == 'linux' }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenUtau-${{ matrix.arch.name }}-${{ needs.version.outputs.version }}.AppImage
+          path: OpenUtau-${{ matrix.arch.name }}.AppImage
+        if: ${{ matrix.arch.os == 'linux' }}
+
+  release:
+    needs: [version, build]
+    if: ${{ inputs.release }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: OpenUtau-*
+          merge-multiple: true
+
+      # Soft-fail: runs on forks whose token may not be allowed to write.
+      - name: Release
+        continue-on-error: true
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.version.outputs.version }}
+          name: ${{ needs.version.outputs.version }} (marked build)
+          prerelease: true
+          body: |
+            Marked multi-platform test build of `${{ inputs.ref || github.ref }}` at commit `${{ needs.version.outputs.sha }}`.
+          files: |
+            OpenUtau-*.zip
+            OpenUtau-*.exe
+            OpenUtau-*.dmg
+            OpenUtau-*.tar.gz
+            OpenUtau-*.AppImage
