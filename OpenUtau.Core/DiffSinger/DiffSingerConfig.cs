@@ -48,6 +48,7 @@ namespace OpenUtau.Core.DiffSinger {
         [YamlMember(Alias = "max_depth")] public double _maxDepth;
         [YamlIgnore] public double maxDepth => useContinuousAcceleration ? _maxDepth : _maxDepth / 1000.0;
         public string dur;
+        public string dur_type = "abs";  // "rel": group-aware model (needs word_div/word_dur); "abs": legacy absolute-duration model
         public string linguistic;
         public string pitch;
         public string variance;

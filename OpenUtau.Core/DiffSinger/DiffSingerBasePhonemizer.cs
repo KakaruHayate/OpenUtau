@@ -456,12 +456,13 @@ namespace OpenUtau.Core.DiffSinger
             durationInputs.Add(NamedOnnxValue.CreateFromTensor("ph_midi",
                 new DenseTensor<Int64>(ph_midi, new int[] { ph_midi.Length }, false)
                 .Reshape(new int[] { 1, ph_midi.Length })));
-            //Group-aware duration models also need word_div/word_dur: pass them
-            //along when the graph declares them, so older models are unaffected.
-            if (durationModel.InputMetadata.ContainsKey("word_div")) {
+            //Group-aware ("rel") duration models need word_div/word_dur; absolute ("abs") don't.
+            //When dur_type is absent, fall back to probing the graph (interim attn voicebanks).
+            bool feedWordInputs = dsConfig.dur_type == "rel"
+                || (string.IsNullOrEmpty(dsConfig.dur_type)
+                    && durationModel.InputMetadata.ContainsKey("word_div"));
+            if (feedWordInputs) {
                 durationInputs.Add(NamedOnnxValue.CreateFromTensor("word_div", wordDivTensor));
-            }
-            if (durationModel.InputMetadata.ContainsKey("word_dur")) {
                 durationInputs.Add(NamedOnnxValue.CreateFromTensor("word_dur", wordDurTensor));
             }
             //Speaker
