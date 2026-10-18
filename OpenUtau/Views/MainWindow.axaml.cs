@@ -1898,19 +1898,28 @@ namespace OpenUtau.App.Views {
 
         async void ValidateTracksVoiceColor() {
             DocManager.Inst.StartUndoGroup("command.track.remapvc");
-            foreach (var track in DocManager.Inst.Project.tracks) {
-                if (track.ValidateVoiceColor(out var oldColors, out var newColors)) {
-                    await VoiceColorRemappingAsync(track, oldColors, newColors);
+            try {
+                foreach (var track in DocManager.Inst.Project.tracks) {
+                    if (track.ValidateVoiceColor(out var oldColors, out var newColors)) {
+                        await VoiceColorRemappingAsync(track, oldColors, newColors);
+                    }
+                    await RemapImportedVocalModesAsync(track);
                 }
-                await RemapImportedVocalModesAsync(track);
+            } finally {
+                // Must close the group even if a remapping dialog or an import threw, otherwise
+                // the undo stack stays inside a group nobody ends.
+                DocManager.Inst.EndUndoGroup();
             }
-            DocManager.Inst.EndUndoGroup();
         }
 
         async Task RemapImportedVocalModesAsync(UTrack track) {
             if (track.Singer?.SingerType != USingerType.DiffSinger) return;
             track.Singer.EnsureLoaded();
             if (!track.Singer.Loaded) return;
+            // A DiffSinger voicebank that declares no subbanks has no voice color to remap onto,
+            // so there is nothing to ask the user about.
+            var colors = track.Singer.Subbanks.Select(s => s.Color).ToArray();
+            if (colors.Length == 0) return;
             var parts = DocManager.Inst.Project.parts.Where(p => p.trackNo == track.TrackNo && p is UVoicePart).Cast<UVoicePart>().ToArray();
             var modes = parts.SelectMany(p => p.curves)
                 .Where(c => c.descriptor != null && IsImportedVocalModeCurve(c.abbr))
@@ -1921,7 +1930,6 @@ namespace OpenUtau.App.Views {
             if (modes.Length == 0) return;
 
             var oldModes = new[] { "" }.Concat(modes).ToArray();
-            var colors = track.Singer.Subbanks.Select(s => s.Color).ToArray();
             var dialog = new VoiceColorMappingDialog { DataContext = new VoiceColorMappingViewModel(oldModes, colors, track.TrackName) };
             await dialog.ShowDialog(this);
             if (!dialog.Apply) return;
@@ -1930,7 +1938,9 @@ namespace OpenUtau.App.Views {
                 var sourceName = modes[mapping.OldIndex - 1];
                 var sourceDescriptor = DocManager.Inst.Project.expressions.Values.FirstOrDefault(d => d.name.Equals(sourceName, StringComparison.OrdinalIgnoreCase));
                 if (sourceDescriptor == null) continue;
-                string targetAbbr = $"cl{mapping.SelectedIndex:D2}";
+                // SelectedIndex is the subbank index chosen in the dialog, while DiffSinger exposes
+                // subbank k as curve cl(k+1) (see DiffSingerRenderer.GetExpressions).
+                string targetAbbr = $"cl{mapping.SelectedIndex + 1:D2}";
                 if (!DocManager.Inst.Project.expressions.TryGetValue(targetAbbr, out var targetDescriptor)) {
                     targetDescriptor = new UExpressionDescriptor($"voice color {colors[mapping.SelectedIndex]}", targetAbbr, 0, 100, 0) { type = UExpressionType.Curve };
                     DocManager.Inst.Project.RegisterExpression(targetDescriptor);
