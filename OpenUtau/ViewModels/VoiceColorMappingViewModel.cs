@@ -9,6 +9,10 @@ namespace OpenUtau.App.ViewModels {
         public string TrackName { get; set; }
         public ObservableCollection<ColorMapping> ColorMappings { get; set; } = new ObservableCollection<ColorMapping>();
 
+        /// <summary>
+        /// Builds the rows of the voice color mapping dialog: one row per old color, remapped
+        /// onto the colors of the singer the track currently uses.
+        /// </summary>
         public VoiceColorMappingViewModel(string[] oldColors, string[] newColors, string trackName) {
             var NewColors = new ObservableCollection<string>(newColors);
             if (NewColors.Count > 0) {

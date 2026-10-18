@@ -1896,6 +1896,10 @@ namespace OpenUtau.App.Views {
             }
         }
 
+        /// <summary>
+        /// Remaps voice colors, and imported DiffSinger vocal modes, of every track after an import
+        /// or after a singer change.
+        /// </summary>
         async void ValidateTracksVoiceColor() {
             DocManager.Inst.StartUndoGroup("command.track.remapvc");
             try {
@@ -1912,6 +1916,10 @@ namespace OpenUtau.App.Views {
             }
         }
 
+        /// <summary>
+        /// Offers to copy the curves of vocal modes that came in with an imported project onto
+        /// DiffSinger voice color curves, so the modes keep working on the current singer.
+        /// </summary>
         async Task RemapImportedVocalModesAsync(UTrack track) {
             if (track.Singer?.SingerType != USingerType.DiffSinger) return;
             track.Singer.EnsureLoaded();
@@ -1934,6 +1942,8 @@ namespace OpenUtau.App.Views {
             await dialog.ShowDialog(this);
             if (!dialog.Apply) return;
 
+            // SelectedIndex 0 is "(Default)", which leaves the imported curve untouched, so only rows
+            // mapped to an actual voice color are copied.
             foreach (var mapping in ((VoiceColorMappingViewModel)dialog.DataContext).ColorMappings.Where(m => m.OldIndex > 0 && m.SelectedIndex > 0)) {
                 var sourceName = modes[mapping.OldIndex - 1];
                 var sourceDescriptor = DocManager.Inst.Project.expressions.Values.FirstOrDefault(d => d.name.Equals(sourceName, StringComparison.OrdinalIgnoreCase));
