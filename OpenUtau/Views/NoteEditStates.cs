@@ -52,6 +52,13 @@ namespace OpenUtau.App.Views {
         public IValueTip valueTip;
         protected virtual bool ShowValueTip => true;
         protected virtual string? commandNameKey => null;
+        /// <summary>
+        /// Whether Update should also see the pointer moves the system merged into
+        /// this one. Drawing states connect each point to the last, so a fast
+        /// stroke would otherwise turn into long straight segments whenever the
+        /// app falls behind the pointer.
+        /// </summary>
+        public virtual bool UsesIntermediatePoints => false;
         public bool ctrlShiftHeld = false;
         public bool altShiftHeld = false;
         public bool shiftHeld = false;
@@ -458,8 +465,37 @@ namespace OpenUtau.App.Views {
         }
 
         public override void Begin(IPointer pointer, Point point) {
+            base.Begin(pointer, point);   // mouse-specific: capture the pointer, open the undo group
+            BeginSplit(point);            // the actual split logic
+        }
+
+        public override void Update(IPointer pointer, Point point) {
+            UpdateSplit(point);
+        }
+
+        /// <summary>
+        /// Starts a keyboard-driven split. Returns false if nothing could be split
+        /// (e.g. the note is too short), in which case no new note was created.
+        /// </summary>
+        public bool BeginKeyboardSplit(Point point) {
+            DocManager.Inst.StartUndoGroup(commandNameKey);
+            BeginSplit(point);
+            UpdateSplit(point);
+            return newNote != null;
+        }
+
+        /// <summary>Moves the cut of an ongoing keyboard split to the given point.</summary>
+        public void MoveKeyboardSplit(Point point) {
+            UpdateSplit(point);
+        }
+
+        /// <summary>Ends the keyboard split by closing the undo group.</summary>
+        public void EndKeyboardSplit() {
+            DocManager.Inst.EndUndoGroup();
+        }
+
+        private void BeginSplit(Point point) {
             var notesVm = vm.NotesViewModel;
-            base.Begin(pointer, point);
             var project = DocManager.Inst.Project;
             var part = notesVm.Part;
             if (project == null || part == null || note == null) {
@@ -488,7 +524,7 @@ namespace OpenUtau.App.Views {
             DocManager.Inst.ExecuteCmd(new ChangeNoteLyricCommand(part, newNote, NotePresets.Default.SplittedLyric));
         }
 
-        public override void Update(IPointer pointer, Point point) {
+        private void UpdateSplit(Point point) {
             var project = DocManager.Inst.Project;
             var notesVm = vm.NotesViewModel;
             if (notesVm.Part == null || newNote == null) {
@@ -702,9 +738,11 @@ namespace OpenUtau.App.Views {
     }
 
     class ExpSetValueState : NoteEditState {
+        public override bool UsesIntermediatePoints => true;
         private Point firstPoint;
         private Point lastPoint;
         private UExpressionDescriptor? descriptor;
+        public bool IsCurve => descriptor?.type == UExpressionType.Curve || descriptor?.type == UExpressionType.MaskedCurve;
         private UTrack track;
         private double startValue = 0;
         private bool shiftWasHeld = false;
@@ -862,6 +900,7 @@ namespace OpenUtau.App.Views {
     }
 
     class ExpResetValueState : NoteEditState {
+        public override bool UsesIntermediatePoints => true;
         private Point lastPoint;
         private UExpressionDescriptor? descriptor;
         private UTrack track;
@@ -1664,6 +1703,7 @@ namespace OpenUtau.App.Views {
     }
 
     class DrawPitchState : NoteEditState {
+        public override bool UsesIntermediatePoints => true;
         protected override bool ShowValueTip => false;
         protected override string? commandNameKey => "command.pitch.draw";
         private readonly bool overwrite;
@@ -2239,6 +2279,7 @@ namespace OpenUtau.App.Views {
     }
 
     class ResetPitchState : NoteEditState {
+        public override bool UsesIntermediatePoints => true;
         public override MouseButton MouseButton => MouseButton.Right;
         protected override bool ShowValueTip => false;
         protected override string? commandNameKey => "command.pitch.reset";

@@ -68,7 +68,7 @@ namespace OpenUtau.App.ViewModels {
 
         // Paths
         public string SingerPath => PathManager.Inst.SingersPath;
-        public string AdditionalSingersPath => !string.IsNullOrWhiteSpace(PathManager.Inst.AdditionalSingersPath) ? PathManager.Inst.AdditionalSingersPath : "(None)";
+        public string AdditionalSingersPath => PathManager.Inst.AdditionalSingersPath;
         [Reactive] public partial bool InstallToAdditionalSingersPath { get; set; }
         [Reactive] public partial bool LoadDeepFolders { get; set; }
 
@@ -80,6 +80,7 @@ namespace OpenUtau.App.ViewModels {
         [Reactive] public partial LyricsHelperOption? LyricsHelper { get; set; }
         [Reactive] public partial bool LyricsHelperBrackets { get; set; }
         [Reactive] public partial bool PenPlusDefault { get; set; }
+        [Reactive] public partial bool RenderStatusInTrackBar { get; set; }
 
         // Render
         [Reactive] public partial bool PreRender { get; set; }
@@ -108,12 +109,17 @@ namespace OpenUtau.App.ViewModels {
 
         // Appearance
         [Reactive] public partial string ThemeName { get; set; }
+        [Reactive] public partial string UiFontPath { get; set; }
+        [Reactive] public partial string UiFontFamily { get; set; }
+        [Reactive] public partial bool UseUiFontForNotes { get; set; }
+        public List<string>  UiFontFamilies { get; private set; } = new();
         [Reactive] public partial int DegreeStyle { get; set; }
         [Reactive] public partial bool UseTrackColor { get; set; }
         [Reactive] public partial bool ShowPortrait { get; set; }
         [Reactive] public partial bool ShowIcon { get; set; }
         [Reactive] public partial bool ShowGhostNotes { get; set; }
         [Reactive] public partial bool NoteHoverGlow { get; set; }
+        [Reactive] public partial bool ReduceAnimations { get; set; }
         [Reactive] public partial bool ShowPlaybackNoteHighlight { get; set; }
         [Reactive] public partial bool ShowPlaybackNoteBounce { get; set; }
         [Reactive] public partial bool DetachPianoRoll { get; set; }
@@ -228,12 +234,17 @@ namespace OpenUtau.App.ViewModels {
             DiffSingerLangCodeHide = Preferences.Default.DiffSingerLangCodeHide;
             SkipRenderingMutedTracks = Preferences.Default.SkipRenderingMutedTracks;
             ThemeName = Preferences.Default.ThemeName;
+            UiFontPath = Preferences.Default.UiFontPath;
+            UiFontFamily = Preferences.Default.UiFontFamily;
+            UseUiFontForNotes = Preferences.Default.UseUiFontForNotes;
+            RefreshUiFontFamilies();
             DegreeStyle = Preferences.Default.DegreeStyle;
             UseTrackColor = Preferences.Default.UseTrackColor;
             ShowPortrait = Preferences.Default.ShowPortrait;
             ShowIcon = Preferences.Default.ShowIcon;
             ShowGhostNotes = Preferences.Default.ShowGhostNotes;
             NoteHoverGlow = Preferences.Default.NoteHoverGlow;
+            ReduceAnimations = Preferences.Default.ReduceAnimations;
             ShowPlaybackNoteHighlight = Preferences.Default.ShowPlaybackNoteHighlight;
             ShowPlaybackNoteBounce = Preferences.Default.ShowPlaybackNoteBounce;
             DetachPianoRoll = Preferences.Default.DetachPianoRoll;
@@ -244,6 +255,7 @@ namespace OpenUtau.App.ViewModels {
             };
             LyricsHelper = LyricsHelpers.FirstOrDefault(option => option.klass.Equals(ActiveLyricsHelper.Inst.GetPreferred()));
             LyricsHelperBrackets = Preferences.Default.LyricsHelperBrackets;
+            RenderStatusInTrackBar = Preferences.Default.RenderStatusInTrackBar;
             OtoEditor = Preferences.Default.OtoEditor;
             RememberMid = Preferences.Default.RememberMid;
             RememberUst = Preferences.Default.RememberUst;
@@ -264,7 +276,7 @@ namespace OpenUtau.App.ViewModels {
                 .Select(n => n > SafeMaxThreadCount)
                 .ToProperty(this, vm => vm.HighThreads, out highThreads);
             this.WhenAnyValue(vm => vm.OnnxRunner)
-                .Select(runner => runner == "DirectML" || runner == "CUDA")
+                .Select(runner => runner == "DirectML" || runner == "CUDA" || runner == "WebGPU")
                 .ToProperty(this, vm => vm.ShowOnnxGpu, out showOnnxGpu);
             this.WhenAnyValue(vm => vm.ThemeName)
                 .Select(themeName => themeName != "Light" && themeName != "Dark" && !Colors.CustomTheme.IsPackageTheme(themeName))
@@ -290,6 +302,8 @@ namespace OpenUtau.App.ViewModels {
                 });
             PersistOn(this.WhenAnyValue(vm => vm.AudioBackEnd),
                 index => Preferences.Default.AudioBackEnd = index);
+            PersistOn(this.WhenAnyValue(vm => vm.ReduceAnimations),
+                reduceAnimations => Preferences.Default.ReduceAnimations = reduceAnimations);
             PersistOn(this.WhenAnyValue(vm => vm.PlaybackAutoScroll),
                 autoScroll => Preferences.Default.PlaybackAutoScroll = autoScroll);
             PersistOn(this.WhenAnyValue(vm => vm.PlayPosMarkerMargin),
@@ -333,6 +347,29 @@ namespace OpenUtau.App.ViewModels {
                         Preferences.Save();
                         App.SetTheme();
                     }
+                });
+            this.WhenAnyValue(vm => vm.UiFontPath)
+                .Skip(1)
+                .Subscribe(path => {
+                    Preferences.Default.UiFontPath = UiFontManager.IsSupportedFontPath(path) ? path : string.Empty;
+                    Preferences.Save();
+                    UiFontManager.Apply();
+                    RefreshUiFontFamilies();
+                });
+            this.WhenAnyValue(vm => vm.UiFontFamily)
+                .Skip(1)
+                .Subscribe(family => {
+                    Preferences.Default.UiFontFamily = family?.Trim() ?? string.Empty;
+                    Preferences.Save();
+                    UiFontManager.Apply();
+                });
+            this.WhenAnyValue(vm => vm.UseUiFontForNotes)
+                .Skip(1)
+                .Subscribe(useUiFont => {
+                    Preferences.Default.UseUiFontForNotes = useUiFont;
+                    Preferences.Save();
+                    OpenUtau.App.Controls.TextLayoutCache.Clear();
+                    MessageBus.Current.SendMessage(new NotesRefreshEvent());
                 });
             this.WhenAnyValue(vm => vm.DegreeStyle)
                 .Skip(1)
@@ -414,6 +451,11 @@ namespace OpenUtau.App.ViewModels {
                 });
             PersistOn(this.WhenAnyValue(vm => vm.LyricsHelperBrackets),
                 brackets => Preferences.Default.LyricsHelperBrackets = brackets);
+            PersistOn(this.WhenAnyValue(vm => vm.RenderStatusInTrackBar),
+                renderStatus => {
+                    Preferences.Default.RenderStatusInTrackBar = renderStatus;
+                    MessageBus.Current.SendMessage(new TracksRefreshEvent());
+                });
             PersistOn(this.WhenAnyValue(vm => vm.OtoEditor),
                 index => Preferences.Default.OtoEditor = index);
             PersistOn(this.WhenAnyValue(vm => vm.NumRenderThreads),
@@ -521,6 +563,25 @@ namespace OpenUtau.App.ViewModels {
             Preferences.Default.SetParamPath = path;
             Preferences.Save();
             this.RaisePropertyChanged(nameof(SetParamPath));
+        }
+        
+        public void SetUiFontPath(string path) {
+            UiFontPath = path;
+            UiFontFamily = UiFontManager.GetSuggestedFamilyName(path);
+        }
+
+        public void ResetUiFont() {
+            UiFontPath = string.Empty;
+            UiFontFamily = string.Empty;
+        }
+
+        private void RefreshUiFontFamilies() {
+            UiFontFamilies = UiFontManager.GetAvailableFontFamilies();
+            if (!string.IsNullOrWhiteSpace(UiFontFamily)
+                && !UiFontFamilies.Contains(UiFontFamily, StringComparer.OrdinalIgnoreCase)) {
+                UiFontFamilies.Insert(0, UiFontFamily);
+            }
+            this.RaisePropertyChanged(nameof(UiFontFamilies));
         }
 
         public void SetWinePath(string path) {
