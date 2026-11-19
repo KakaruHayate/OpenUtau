@@ -1018,6 +1018,13 @@ namespace OpenUtau.App.Controls {
                             CommandParameter = hitInfo,
                             InputGesture = new KeyGesture(Key.Delete),
                         });
+                        if (ViewModel.NotesViewModel.Selection.Count > 1) {
+                            ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
+                                Header = ThemeManager.GetString("context.note.merge"),
+                                Command = ReactiveCommand.Create(() => ViewModel.NotesViewModel.MergeSelectedNotes()),
+                                InputGesture = new KeyGesture(Key.U, KeyModifiers.Control),
+                            });
+                        }
                         ViewModel.NotesContextMenuItems.Add(new MenuItemViewModel() {
                             Header = ThemeManager.GetString("context.note.pasteparameters"),
                             Command = ReactiveCommand.Create(() => ViewModel.NotesViewModel.PasteSelectedParams(RootWindow)),
@@ -1328,8 +1335,9 @@ namespace OpenUtau.App.Controls {
                 valueTipPointerPosition = args.GetCurrentPoint(ValueTipCanvas!).Position;
             }
             if (editState != null) {
+                // Allow straight lines to be drawn by holding down the Shift key, like in illustration software    
                 editState.ctrlShiftHeld = args.KeyModifiers != KeyModifiers.Shift && ViewModel.CurveViewModel.CurveTool == CurveTools.CurveLineTool;
-                editState.shiftHeld = args.KeyModifiers == KeyModifiers.Shift  && (ViewModel.CurveViewModel.CurveTool == CurveTools.CurveLineTool  || (editState is ExpSetValueState expSetValueState && !expSetValueState.IsCurve));
+                editState.shiftHeld = (args.KeyModifiers == KeyModifiers.Shift && (ViewModel.CurveViewModel.CurveTool == CurveTools.CurveLineTool || ViewModel.CurveViewModel.CurveTool == CurveTools.CurvePenTool));
                 UpdateEditState(args, control, point);
             } else {
                 Cursor = null;
