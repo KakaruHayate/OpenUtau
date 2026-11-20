@@ -594,18 +594,6 @@ namespace OpenUtau.Core.DiffSinger {
                         maxDifference, singer.dsConfig.acoustic);
                 }
             }
-            if (inpaintKey.HasValue) {
-                if (inpaintUnchanged && previousState != null) {
-                    previousState.PhraseHash = phrase.hash;
-                } else if (acousticInpaint || previousState != null) {
-                    // Store the take this render produced. With local retaking off this
-                    // only refreshes a reference that already exists, so enabling the
-                    // feature later compares against the take the user heard.
-                    singer.AcousticInpaintStates.Set(new AcousticInpaintState(
-                        inpaintKey.Value, singer.acousticHash, totalFrames, bins, frameMs,
-                        rawMel, acousticConditions, phrase.preEffectHash, phrase.hash));
-                }
-            }
             //mel transforms for different mel base; ref_mel above stays in the model's
             //own output domain, so this copy is the only one that changes.
             float[] melData = (float[])rawMel.Clone();
@@ -655,6 +643,20 @@ namespace OpenUtau.Core.DiffSinger {
                 var signal = new NWaves.Signals.DiscreteSignal(vocoder.sample_rate, samples);
                 signal = NWaves.Operations.Operation.Resample(signal, 44100);
                 samples = signal.Samples;
+            }
+            // Publish only now that the waveform exists: a cancellation or a failure in
+            // the vocoder must not leave a reference for a take the user never heard.
+            if (inpaintKey.HasValue) {
+                if (inpaintUnchanged && previousState != null) {
+                    previousState.PhraseHash = phrase.hash;
+                } else if (acousticInpaint || previousState != null) {
+                    // Store the take this render produced. With local retaking off this
+                    // only refreshes a reference that already exists, so enabling the
+                    // feature later compares against the take the user heard.
+                    singer.AcousticInpaintStates.Set(new AcousticInpaintState(
+                        inpaintKey.Value, singer.acousticHash, totalFrames, bins, frameMs,
+                        rawMel, acousticConditions, phrase.preEffectHash, phrase.hash));
+                }
             }
             return samples;
         }

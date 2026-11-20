@@ -280,6 +280,7 @@ namespace OpenUtau.Core {
             readonly bool previousCache;
             readonly int previousSteps;
             readonly DiffSingerSinger dsSinger;
+            bool searchRan;
 
             public DiffSingerSinger DsSinger => dsSinger;
             public USinger Singer => dsSinger;
@@ -313,6 +314,7 @@ namespace OpenUtau.Core {
                     }
 
                     SingerManager.Inst.SearchAllSingers();
+                    searchRan = true;
                     var singer = SingerManager.Inst.Singers.Values
                         .FirstOrDefault(s => s.SingerType == USingerType.DiffSinger);
                     if (singer == null) {
@@ -357,6 +359,16 @@ namespace OpenUtau.Core {
                 Preferences.Default.DiffSingerLocalRetakeLevel = previousLevel;
                 Preferences.Default.DiffSingerTensorCache = previousCache;
                 Preferences.Default.DiffSingerSteps = previousSteps;
+                if (!searchRan) {
+                    return;
+                }
+                // The registry was built from the test path; rebuild it from the
+                // restored paths so later tests do not observe the test voicebank.
+                try {
+                    SingerManager.Inst.SearchAllSingers();
+                } catch {
+                    // A refresh failure must not mask the test's own result.
+                }
             }
         }
     }
