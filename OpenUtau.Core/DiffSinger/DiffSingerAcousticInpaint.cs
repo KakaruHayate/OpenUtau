@@ -251,16 +251,21 @@ namespace OpenUtau.Core.DiffSinger {
         /// <summary>
         /// Structural identity of a render: everything that decides the mel except the
         /// curves. Curves are absent on purpose - they are compared frame by frame, so
-        /// an edit must not miss the previous state.
+        /// an edit must not miss the previous state. <paramref name="preEffectHash"/> is
+        /// the phrase's curve-free identity, which keeps two phrases with equal tokens
+        /// and timing from sharing a state entry; it excludes curves, so a curve edit
+        /// keeps the same key.
         /// </summary>
         public static ulong BuildKey(
-                ulong acousticHash, IReadOnlyList<long> tokens, IReadOnlyList<int> durations,
+                ulong acousticHash, ulong preEffectHash,
+                IReadOnlyList<long> tokens, IReadOnlyList<int> durations,
                 IReadOnlyList<long>? languages, int totalFrames, int bins, float frameMs,
                 double depth, int steps) {
             using var stream = new MemoryStream();
             using (var writer = new BinaryWriter(stream)) {
                 writer.Write(KeyVersion);
                 writer.Write(acousticHash);
+                writer.Write(preEffectHash);
                 writer.Write(totalFrames);
                 writer.Write(bins);
                 writer.Write(frameMs);

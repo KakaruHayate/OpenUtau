@@ -263,13 +263,22 @@ namespace OpenUtau.Core.DiffSinger{
                 // Speaker embedding is a retake-able frame-level condition.
                 AddVarianceInput(NamedOnnxValue.CreateFromTensor("spk_embed", spkEmbedTensor), includeInPatchKey: false);
             }
-            ulong? variancePatchKey = null;
+            // The state doubles as the reference for the next local retake. While local
+            // retaking is off it is refreshed after every full prediction, so enabling
+            // the feature later compares against the take the user last heard instead
+            // of a prediction made before it was disabled.
+            ulong? varianceStateKey = null;
+            bool localRetake =
+                Preferences.Default.DiffSingerLocalRetakeLevel >= (int)DiffSingerLocalRetake.Variance;
+            if (localRetake || variancePatchStates.Count > 0) {
+                var baseHash = new DiffSingerCache(varianceHash, variancePatchInputs).Hash;
+                varianceStateKey = DiffSingerVariancePatch.BuildStateKey(baseHash, phrase.position, phrase.end);
+            }
+            bool keepVarianceReference = localRetake
+                || (varianceStateKey.HasValue && variancePatchStates.Contains(varianceStateKey.Value));
             // Local retaking is a rendering behaviour, not a cache policy: the state is
             // kept in memory either way, so the tensor cache preference no longer gates it.
-            if (Preferences.Default.DiffSingerLocalRetakeLevel >= (int)DiffSingerLocalRetake.Variance) {
-                var baseHash = new DiffSingerCache(varianceHash, variancePatchInputs).Hash;
-                variancePatchKey = DiffSingerVariancePatch.BuildStateKey(baseHash, phrase.position, phrase.end);
-            }
+            ulong? variancePatchKey = localRetake ? varianceStateKey : null;
             // Cache the final pipeline result in a separate namespace from raw predictor outputs.
             var resultCacheInputs = new List<NamedOnnxValue>(varianceInputs) {
                 NamedOnnxValue.CreateFromTensor(
@@ -282,9 +291,9 @@ namespace OpenUtau.Core.DiffSinger{
             var cachedOutputs = resultCache?.Load();
             if (cachedOutputs != null) {
                 var cachedResult = ParseVarianceResult(cachedOutputs, frameMs, headFrames, tailFrames, totalFrames);
-                if (variancePatchKey.HasValue) {
+                if (keepVarianceReference) {
                     variancePatchStates.Set(
-                        variancePatchKey.Value,
+                        varianceStateKey!.Value,
                         new VariancePatchState(pitch, speakerEmbed, cachedResult));
                 }
                 return cachedResult;
@@ -378,9 +387,9 @@ namespace OpenUtau.Core.DiffSinger{
                 resultCache.Save(BuildVarianceOutputs(result));
                 phrase.AddCacheFile(resultCache.Filename);
             }
-            if (variancePatchKey.HasValue) {
+            if (keepVarianceReference) {
                 variancePatchStates.Set(
-                    variancePatchKey.Value,
+                    varianceStateKey!.Value,
                     new VariancePatchState(pitch, speakerEmbed, result));
             }
             return result;

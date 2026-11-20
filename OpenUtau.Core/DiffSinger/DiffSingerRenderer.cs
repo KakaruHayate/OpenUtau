@@ -251,9 +251,10 @@ namespace OpenUtau.Core.DiffSinger {
             // graph. A mismatch throws instead of silently rendering without the kept
             // region, which would look like the feature simply did nothing.
             bool acousticInpaintSupported = singer.EnsureAcousticInpaintSupported(acousticModel);
+            bool hasXsy = phrase.xsy != null && phrase.xsy.Any(x => x > 0);
             bool acousticInpaint = acousticInpaintSupported
                 && Preferences.Default.DiffSingerLocalRetakeLevel >= (int)DiffSingerLocalRetake.VarianceAndAcoustic
-                && !(phrase.xsy != null && phrase.xsy.Any(x => x > 0));
+                && !hasXsy;
             var frameMs = vocoder.frameMs();
             var frameSec = frameMs / 1000;
             int headFrames = DiffSingerUtils.headFrames;
@@ -272,6 +273,26 @@ namespace OpenUtau.Core.DiffSinger {
             var durations = DiffSingerUtils.PaddedPhoneDurations(phrase, frameMs, headFrames, tailFrames)
                 .ToList();
             int totalFrames = durations.Sum();
+            int bins = singer.dsConfig.num_mel_bins;
+            long[]? languages = singer.dsConfig.use_lang_id
+                ? DiffSingerUtils.PaddedLanguageIds(
+                    phrase, frameMs, headFrames, tailFrames,
+                    phoneme => (long)singer.languageIds.GetValueOrDefault(
+                        DiffSingerUtils.PhonemeLanguage(phoneme), 0))
+                : null;
+            // The last audible take of this structural phrase. While local retaking is
+            // off the mel is refreshed after every render (see the state update below),
+            // so enabling it later compares against what the user actually heard, not
+            // against a take from before the feature was switched off.
+            ulong? inpaintKey = null;
+            AcousticInpaintState? previousState = null;
+            if (acousticInpaintSupported && !hasXsy) {
+                inpaintKey = DiffSingerAcousticInpaint.BuildKey(
+                    singer.acousticHash, phrase.preEffectHash, tokens, durations, languages,
+                    totalFrames, bins, frameMs, depth, steps);
+                previousState = singer.AcousticInpaintStates.TryGet(inpaintKey.Value);
+            }
+            bool keepReference = acousticInpaint || previousState != null;
             float[] f0 = DiffSingerUtils.SampleCurve(phrase, phrase.pitches, 0, frameMs, totalFrames, headFrames, tailFrames, 
                 x => MusicMath.ToneToFreq(x * 0.01))
                 .Select(f => (float)f).ToArray();
@@ -299,7 +320,7 @@ namespace OpenUtau.Core.DiffSinger {
             } else {
                 acousticInputs.Add(NamedOnnxValue.CreateFromTensor("f0", f0Tensor));
             }
-            if (acousticInpaint) {
+            if (keepReference) {
                 // Record the tensor that actually went to the model: the shifted f0 is a
                 // pitch condition in its own right when the vocoder is pitch controllable.
                 acousticConditions.Add(new AcousticCondition("f0",
@@ -333,15 +354,9 @@ namespace OpenUtau.Core.DiffSinger {
                     new DenseTensor<long>(new long[] { speedup }, new int[] { 1 }, false)));
             }
             //Language id
-            long[]? languages = null;
-            if(singer.dsConfig.use_lang_id){
-                var langIdByPhone = DiffSingerUtils.PaddedLanguageIds(
-                    phrase, frameMs, headFrames, tailFrames,
-                    phoneme => (long)singer.languageIds.GetValueOrDefault(
-                        DiffSingerUtils.PhonemeLanguage(phoneme), 0));
-                languages = langIdByPhone;
-                var langIdTensor = new DenseTensor<Int64>(langIdByPhone, new int[] { langIdByPhone.Length }, false)
-                    .Reshape(new int[] { 1, langIdByPhone.Length });
+            if (languages != null) {
+                var langIdTensor = new DenseTensor<Int64>(languages, new int[] { languages.Length }, false)
+                    .Reshape(new int[] { 1, languages.Length });
                 acousticInputs.Add(NamedOnnxValue.CreateFromTensor("languages", langIdTensor));
             }
             //speaker
@@ -349,7 +364,7 @@ namespace OpenUtau.Core.DiffSinger {
                 var speakerEmbedManager = singer.getSpeakerEmbedManager();
                 var spkEmbedTensor = speakerEmbedManager.PhraseSpeakerEmbedByFrame(phrase, durations, frameMs, totalFrames, headFrames, tailFrames);
                 acousticInputs.Add(NamedOnnxValue.CreateFromTensor("spk_embed", spkEmbedTensor));
-                if (acousticInpaint) {
+                if (keepReference) {
                     acousticConditions.Add(new AcousticCondition(
                         "spk_embed", spkEmbedTensor.ToArray(), spkEmbedTensor.Dimensions[2]));
                 }
@@ -367,7 +382,7 @@ namespace OpenUtau.Core.DiffSinger {
                 var genderTensor = new DenseTensor<float>(gender, new int[] { gender.Length })
                     .Reshape(new int[] { 1, gender.Length });
                 acousticInputs.Add(NamedOnnxValue.CreateFromTensor("gender", genderTensor));
-                if (acousticInpaint) {
+                if (keepReference) {
                     acousticConditions.Add(new AcousticCondition("gender", gender));
                 }
             }
@@ -389,7 +404,7 @@ namespace OpenUtau.Core.DiffSinger {
                 var velocityTensor = new DenseTensor<float>(velocity, new int[] { velocity.Length })
                     .Reshape(new int[] { 1, velocity.Length });
                 acousticInputs.Add(NamedOnnxValue.CreateFromTensor("velocity", velocityTensor));
-                if (acousticInpaint) {
+                if (keepReference) {
                     acousticConditions.Add(new AcousticCondition("velocity", velocity));
                 }
             }
@@ -437,7 +452,7 @@ namespace OpenUtau.Core.DiffSinger {
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("energy",
                         new DenseTensor<float>(energy, new int[] { energy.Length })
                         .Reshape(new int[] { 1, energy.Length })));
-                    if (acousticInpaint) {
+                    if (keepReference) {
                         acousticConditions.Add(new AcousticCondition("energy", energy));
                     }
                 }
@@ -460,7 +475,7 @@ namespace OpenUtau.Core.DiffSinger {
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("breathiness",
                         new DenseTensor<float>(breathiness, new int[] { breathiness.Length })
                         .Reshape(new int[] { 1, breathiness.Length })));
-                    if (acousticInpaint) {
+                    if (keepReference) {
                         acousticConditions.Add(new AcousticCondition("breathiness", breathiness));
                     }
                 }
@@ -483,7 +498,7 @@ namespace OpenUtau.Core.DiffSinger {
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("voicing",
                         new DenseTensor<float>(voicing, new int[] { voicing.Length })
                         .Reshape(new int[] { 1, voicing.Length })));
-                    if (acousticInpaint) {
+                    if (keepReference) {
                         acousticConditions.Add(new AcousticCondition("voicing", voicing));
                     }
                 }
@@ -506,22 +521,15 @@ namespace OpenUtau.Core.DiffSinger {
                     acousticInputs.Add(NamedOnnxValue.CreateFromTensor("tension",
                         new DenseTensor<float>(tension, new int[] { tension.Length })
                         .Reshape(new int[] { 1, tension.Length })));
-                    if (acousticInpaint) {
+                    if (keepReference) {
                         acousticConditions.Add(new AcousticCondition("tension", tension));
                     }
                 }
             }
-            int bins = singer.dsConfig.num_mel_bins;
-            ulong? inpaintKey = null;
-            AcousticInpaintState? previousState = null;
             bool[] inpaintMask = Array.Empty<bool>();
             bool inpaintPartial = false;
             bool inpaintUnchanged = false;
             if (acousticInpaint) {
-                inpaintKey = DiffSingerAcousticInpaint.BuildKey(
-                    singer.acousticHash, tokens, durations, languages,
-                    totalFrames, bins, frameMs, depth, steps);
-                previousState = singer.AcousticInpaintStates.TryGet(inpaintKey.Value);
                 if (previousState != null &&
                     previousState.IsCompatible(totalFrames, bins, frameMs, acousticConditions, singer.acousticHash)) {
                     inpaintMask = DiffSingerAcousticInpaint.Expand(
@@ -589,7 +597,10 @@ namespace OpenUtau.Core.DiffSinger {
             if (inpaintKey.HasValue) {
                 if (inpaintUnchanged && previousState != null) {
                     previousState.PhraseHash = phrase.hash;
-                } else {
+                } else if (acousticInpaint || previousState != null) {
+                    // Store the take this render produced. With local retaking off this
+                    // only refreshes a reference that already exists, so enabling the
+                    // feature later compares against the take the user heard.
                     singer.AcousticInpaintStates.Set(new AcousticInpaintState(
                         inpaintKey.Value, singer.acousticHash, totalFrames, bins, frameMs,
                         rawMel, acousticConditions, phrase.preEffectHash, phrase.hash));

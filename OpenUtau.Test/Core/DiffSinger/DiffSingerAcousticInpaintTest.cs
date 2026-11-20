@@ -98,20 +98,24 @@ namespace OpenUtau.Core {
             var durations = new int[] { 4, 5, 6 };
             var languages = new long[] { 0, 0, 0 };
 
-            ulong key = DiffSingerAcousticInpaint.BuildKey(42, tokens, durations, languages, 15, 128, 11.61f, 0.6, 20);
+            ulong key = DiffSingerAcousticInpaint.BuildKey(
+                42, 7, tokens, durations, languages, 15, 128, 11.61f, 0.6, 20);
 
             Assert.Equal(key, DiffSingerAcousticInpaint.BuildKey(
-                42, tokens.ToArray(), durations.ToArray(), languages.ToArray(), 15, 128, 11.61f, 0.6, 20));
+                42, 7, tokens.ToArray(), durations.ToArray(), languages.ToArray(), 15, 128, 11.61f, 0.6, 20));
+            // A different phrase with the same tokens and timing keeps its own state.
             Assert.NotEqual(key, DiffSingerAcousticInpaint.BuildKey(
-                42, tokens, new[] { 4, 5, 7 }, languages, 16, 128, 11.61f, 0.6, 20));
+                42, 8, tokens, durations, languages, 15, 128, 11.61f, 0.6, 20));
             Assert.NotEqual(key, DiffSingerAcousticInpaint.BuildKey(
-                42, new long[] { 1, 2, 4 }, durations, languages, 15, 128, 11.61f, 0.6, 20));
+                42, 7, tokens, new[] { 4, 5, 7 }, languages, 16, 128, 11.61f, 0.6, 20));
             Assert.NotEqual(key, DiffSingerAcousticInpaint.BuildKey(
-                42, tokens, durations, languages, 15, 128, 11.61f, 0.6, 10));
+                42, 7, new long[] { 1, 2, 4 }, durations, languages, 15, 128, 11.61f, 0.6, 20));
             Assert.NotEqual(key, DiffSingerAcousticInpaint.BuildKey(
-                42, tokens, durations, languages, 15, 128, 11.61f, 0.4, 20));
+                42, 7, tokens, durations, languages, 15, 128, 11.61f, 0.6, 10));
             Assert.NotEqual(key, DiffSingerAcousticInpaint.BuildKey(
-                43, tokens, durations, languages, 15, 128, 11.61f, 0.6, 20));
+                42, 7, tokens, durations, languages, 15, 128, 11.61f, 0.4, 20));
+            Assert.NotEqual(key, DiffSingerAcousticInpaint.BuildKey(
+                43, 7, tokens, durations, languages, 15, 128, 11.61f, 0.6, 20));
         }
 
         [Fact]

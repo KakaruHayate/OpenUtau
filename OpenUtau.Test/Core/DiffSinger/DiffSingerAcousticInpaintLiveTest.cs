@@ -113,6 +113,55 @@ namespace OpenUtau.Core {
             }
         }
 
+        /// <summary>
+        /// Enabling local retaking after rendering with it off must keep the frames of
+        /// the take the user last heard, not those of the take from before it was
+        /// disabled.
+        /// </summary>
+        [Fact]
+        public void ReferenceFollowsTheTakeHeardWhileRetakesAreOff() {
+            using var fixture = new Fixture();
+            var (project, track, part) = BuildPart(fixture.Singer, fixture.Renderer);
+            var velocity = AddCurve(project, part, DiffSingerUtils.VELC, "velocity (curve)", 0, 200, 100);
+
+            // Retakes on: this render is the first reference.
+            var phrase1 = BuildPhrase(project, track, part, 1);
+            fixture.Render(phrase1);
+            var state1 = fixture.TakeState();
+            float[] mel1 = state1.Mel.ToArray();
+
+            // Retakes off: a plain full render. The reference must follow that take.
+            Preferences.Default.DiffSingerLocalRetakeLevel = (int)DiffSingerLocalRetake.Off;
+            velocity.ys[velocity.ys.Count / 3] = 150;
+            var phrase2 = BuildPhrase(project, track, part, 2);
+            fixture.Render(phrase2);
+            var state2 = fixture.TakeState();
+            Assert.NotSame(state1, state2);
+            Assert.Equal(phrase2.hash, state2.PhraseHash);
+            Assert.False(mel1.SequenceEqual(state2.Mel),
+                "A render with retaking off should replace the reference with the new take.");
+
+            // Retakes on again: the next edit keeps the frames of take 2.
+            Preferences.Default.DiffSingerLocalRetakeLevel = (int)DiffSingerLocalRetake.VarianceAndAcoustic;
+            velocity.ys[velocity.ys.Count * 3 / 4] = 170;
+            var phrase3 = BuildPhrase(project, track, part, 3);
+            fixture.Render(phrase3);
+            var state3 = fixture.TakeState();
+            Assert.Equal(phrase3.hash, state3.PhraseHash);
+
+            bool[] mask = DiffSingerAcousticInpaint.Expand(
+                DiffSingerAcousticInpaint.BuildChangedMask(
+                    state2.Conditions, state3.Conditions, state2.TotalFrames),
+                DiffSingerAcousticInpaint.MarginFrames);
+            Assert.Contains(true, mask);
+            Assert.Contains(false, mask);
+            Assert.True(
+                DiffSingerAcousticInpaint.VerifyRetainedFrames(
+                    state3.Mel, state2.Mel, mask, state2.TotalFrames, state2.Bins, out float maxDifference),
+                "Kept frames should come from the take rendered while retakes were off " +
+                $"(max difference {maxDifference}).");
+        }
+
         static bool[] CompareMask(AcousticInpaintState previous, AcousticInpaintState current) {
             // The mask the renderer used, rebuilt from the two condition snapshots.
             bool[] mask = DiffSingerAcousticInpaint.Expand(
@@ -247,34 +296,41 @@ namespace OpenUtau.Core {
                 previousCache = Preferences.Default.DiffSingerTensorCache;
                 previousSteps = Preferences.Default.DiffSingerSteps;
 
-                Preferences.Default.AdditionalSingerPath = root!;
-                Preferences.Default.DiffSingerLocalRetakeLevel = (int)DiffSingerLocalRetake.VarianceAndAcoustic;
-                Preferences.Default.DiffSingerTensorCache = false;
-                Preferences.Default.DiffSingerSteps = 5;
-                // VoicebankLoader opens character.txt with shift_jis; the app registers
-                // this provider in Program.cs, a test host has to do it itself.
-                System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+                try {
+                    Preferences.Default.AdditionalSingerPath = root!;
+                    Preferences.Default.DiffSingerLocalRetakeLevel = (int)DiffSingerLocalRetake.VarianceAndAcoustic;
+                    Preferences.Default.DiffSingerTensorCache = false;
+                    Preferences.Default.DiffSingerSteps = 5;
+                    // VoicebankLoader opens character.txt with shift_jis; the app registers
+                    // this provider in Program.cs, a test host has to do it itself.
+                    System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
-                // A wav cached by an earlier run would skip the acoustic stage (and its
-                // state) entirely, so start from a clean DiffSinger render cache.
-                foreach (var file in Directory.EnumerateFiles(
-                    PathManager.Inst.CachePath, "ds-*.wav", SearchOption.TopDirectoryOnly)) {
-                    File.Delete(file);
-                }
+                    // A wav cached by an earlier run would skip the acoustic stage (and its
+                    // state) entirely, so start from a clean DiffSinger render cache.
+                    foreach (var file in Directory.EnumerateFiles(
+                        PathManager.Inst.CachePath, "ds-*.wav", SearchOption.TopDirectoryOnly)) {
+                        File.Delete(file);
+                    }
 
-                SingerManager.Inst.SearchAllSingers();
-                var singer = SingerManager.Inst.Singers.Values
-                    .FirstOrDefault(s => s.SingerType == USingerType.DiffSinger);
-                if (singer == null) {
-                    Assert.Fail($"No DiffSinger voicebank found under {root}.");
-                    throw new InvalidOperationException();
+                    SingerManager.Inst.SearchAllSingers();
+                    var singer = SingerManager.Inst.Singers.Values
+                        .FirstOrDefault(s => s.SingerType == USingerType.DiffSinger);
+                    if (singer == null) {
+                        Assert.Fail($"No DiffSinger voicebank found under {root}.");
+                        throw new InvalidOperationException();
+                    }
+                    singer.EnsureLoaded();
+                    Assert.True(singer.Loaded, $"{singer.Id} failed to load: {string.Join("; ", singer.Errors)}");
+                    dsSinger = (DiffSingerSinger)singer;
+                    Assert.True(dsSinger.dsConfig.use_inpaint,
+                        $"{dsSinger.Name} is expected to declare use_inpaint: true.");
+                    HopSize = dsSinger.getVocoder().hop_size;
+                } catch {
+                    // A throwing constructor never reaches Dispose, so restore the
+                    // process-wide preferences here before letting the failure through.
+                    RestorePreferences();
+                    throw;
                 }
-                singer.EnsureLoaded();
-                Assert.True(singer.Loaded, $"{singer.Id} failed to load: {string.Join("; ", singer.Errors)}");
-                dsSinger = (DiffSingerSinger)singer;
-                Assert.True(dsSinger.dsConfig.use_inpaint,
-                    $"{dsSinger.Name} is expected to declare use_inpaint: true.");
-                HopSize = dsSinger.getVocoder().hop_size;
             }
 
             public float[] Render(RenderPhrase phrase) {
@@ -293,6 +349,10 @@ namespace OpenUtau.Core {
             }
 
             public void Dispose() {
+                RestorePreferences();
+            }
+
+            void RestorePreferences() {
                 Preferences.Default.AdditionalSingerPath = previousSingerPath;
                 Preferences.Default.DiffSingerLocalRetakeLevel = previousLevel;
                 Preferences.Default.DiffSingerTensorCache = previousCache;
