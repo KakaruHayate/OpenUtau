@@ -18,11 +18,19 @@ namespace OpenUtau.Core {
         static AcousticCondition Cond(string name, params float[] values) =>
             new AcousticCondition(name, values);
 
+        static readonly Guid DefaultPart = Guid.Parse("11111111-2222-3333-4444-555555555555");
+
         static AcousticInpaintState State(
                 ulong key, ulong preEffectHash, ulong phraseHash,
                 float[] mel, params AcousticCondition[] conditions) =>
+            State(key, preEffectHash, phraseHash, mel, DefaultPart, 480, conditions);
+
+        static AcousticInpaintState State(
+                ulong key, ulong preEffectHash, ulong phraseHash,
+                float[] mel, Guid partId, int phrasePosition, params AcousticCondition[] conditions) =>
             new AcousticInpaintState(
-                key, 42, mel.Length / 2, 2, 11.6f, mel, conditions, preEffectHash, phraseHash);
+                key, 42, partId, phrasePosition, mel.Length / 2, 2, 11.6f, mel, conditions,
+                preEffectHash, phraseHash);
 
         [Fact]
         public void BuildChangedMask_MarksOnlyTheFramesThatDiffer() {
@@ -218,19 +226,28 @@ namespace OpenUtau.Core {
         }
 
         [Fact]
-        public void Cache_RemoveForPhraseDropsOnlyOtherVersionsOfTheSamePhrase() {
+        public void Cache_RemoveForPhraseDropsOnlyOtherVersionsOfTheSameOccurrence() {
+            var otherPart = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
             var cache = new AcousticInpaintStateCache(8);
             cache.Set(State(1, 10, 100, new float[] { 1, 1, 1, 1 }, Cond("energy", 0, 0)));
             cache.Set(State(2, 10, 200, new float[] { 2, 2, 2, 2 }, Cond("energy", 0, 0)));
             cache.Set(State(3, 20, 300, new float[] { 3, 3, 3, 3 }, Cond("energy", 0, 0)));
+            // Same pre-effect hash in another part or at another position is another
+            // occurrence and must keep its own reference.
+            cache.Set(State(4, 10, 400, new float[] { 4, 4, 4, 4 }, DefaultPart, 960, Cond("energy", 0, 0)));
+            cache.Set(State(5, 10, 500, new float[] { 5, 5, 5, 5 }, otherPart, 480, Cond("energy", 0, 0)));
+            cache.Set(State(6, 20, 600, new float[] { 6, 6, 6, 6 }, DefaultPart, 480, Cond("energy", 0, 0)));
 
-            // The wav for phrase hash 200 was served from disk: the state for the
-            // other version (hash 100) must go, the matching one and other phrases stay.
-            cache.RemoveForPhrase(10, 200);
+            // The wav for phrase hash 200 was served from disk: only the other
+            // version of the same occurrence (hash 100) goes.
+            cache.RemoveForPhrase(DefaultPart, 480, 10, 200);
 
             Assert.Null(cache.TryGet(1));
             Assert.NotNull(cache.TryGet(2));
             Assert.NotNull(cache.TryGet(3));
+            Assert.NotNull(cache.TryGet(4));
+            Assert.NotNull(cache.TryGet(5));
+            Assert.NotNull(cache.TryGet(6));
         }
 
         [Fact]
@@ -272,6 +289,26 @@ namespace OpenUtau.Core {
 
             Assert.True(command.ValidateOptions.SkipPhonemizer);
             Assert.True(command.ValidateOptions.SkipPhoneme);
+        }
+
+        [Fact]
+        public void InspectModelInputs_ReturnsNullWhenTheGraphDoesNotDeclareThem() {
+            Assert.Null(DiffSingerAcousticInpaint.InspectModelInputs(
+                "a.onnx", new[] { "tokens", "ref_mel" }, _ => typeof(float)));
+            Assert.Null(DiffSingerAcousticInpaint.InspectModelInputs(
+                "a.onnx", new[] { "tokens" }, _ => typeof(float)));
+        }
+
+        [Fact]
+        public void InspectModelInputs_ThrowsWhenAUsableInputHasTheWrongType() {
+            var names = new[] { "ref_mel", "inpaint_mask" };
+
+            Assert.Throws<InvalidDataException>(() =>
+                DiffSingerAcousticInpaint.InspectModelInputs(
+                    "a.onnx", names, name => name == "ref_mel" ? typeof(double) : typeof(bool)));
+            Assert.Throws<InvalidDataException>(() =>
+                DiffSingerAcousticInpaint.InspectModelInputs(
+                    "a.onnx", names, name => name == "ref_mel" ? typeof(float) : typeof(long)));
         }
 
         [Fact]

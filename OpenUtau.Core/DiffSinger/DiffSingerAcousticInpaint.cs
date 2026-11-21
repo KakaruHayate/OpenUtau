@@ -42,6 +42,9 @@ namespace OpenUtau.Core.DiffSinger {
     internal sealed class AcousticInpaintState {
         public readonly ulong Key;
         public readonly ulong AcousticHash;
+        /// <summary>Occurrence identity: the part and the phrase position.</summary>
+        public readonly Guid PartId;
+        public readonly int PhrasePosition;
         public readonly int TotalFrames;
         public readonly int Bins;
         public readonly float FrameMs;
@@ -58,11 +61,14 @@ namespace OpenUtau.Core.DiffSinger {
         public ulong PhraseHash;
 
         public AcousticInpaintState(
-                ulong key, ulong acousticHash, int totalFrames, int bins, float frameMs,
+                ulong key, ulong acousticHash, Guid partId, int phrasePosition,
+                int totalFrames, int bins, float frameMs,
                 float[] mel, IReadOnlyList<AcousticCondition> conditions,
                 ulong preEffectHash, ulong phraseHash) {
             Key = key;
             AcousticHash = acousticHash;
+            PartId = partId;
+            PhrasePosition = phrasePosition;
             TotalFrames = totalFrames;
             Bins = bins;
             FrameMs = frameMs;
@@ -151,15 +157,20 @@ namespace OpenUtau.Core.DiffSinger {
         }
 
         /// <summary>
-        /// Drops the states of a phrase that do not belong to <paramref name="phraseHash"/>.
-        /// Called when a render was served from the wav cache: that audio is authoritative
-        /// for its hash, and a mel kept for another version of the phrase would silently
-        /// put the wrong take under the untouched frames of the next edit.
+        /// Drops the states of one phrase occurrence that do not belong to
+        /// <paramref name="phraseHash"/>. Called when a render was served from the wav
+        /// cache: that audio is authoritative for its hash, and a mel kept for another
+        /// version of the same occurrence would silently put the wrong take under the
+        /// untouched frames of the next edit. States of other occurrences that happen to
+        /// share the pre-effect hash are left alone.
         /// </summary>
-        public void RemoveForPhrase(ulong preEffectHash, ulong phraseHash) {
+        public void RemoveForPhrase(
+                Guid partId, int phrasePosition, ulong preEffectHash, ulong phraseHash) {
             lock (gate) {
                 var stale = entries.Values
-                    .Where(node => node.Value.state.PreEffectHash == preEffectHash
+                    .Where(node => node.Value.state.PartId == partId
+                        && node.Value.state.PhrasePosition == phrasePosition
+                        && node.Value.state.PreEffectHash == preEffectHash
                         && node.Value.state.PhraseHash != phraseHash)
                     .Select(node => node.Value.key)
                     .ToArray();
@@ -215,23 +226,17 @@ namespace OpenUtau.Core.DiffSinger {
         public const string MaskInputName = "inpaint_mask";
 
         /// <summary>
-        /// Checks the inputs a voicebank that declares <c>use_inpaint: true</c> must
-        /// export, and returns the element type of <c>inpaint_mask</c> (bool for current
-        /// exports, float for older ones). Throws with an actionable message when the
-        /// graph cannot honour the declaration: a broken voicebank must fail loudly
-        /// instead of silently rendering without the kept region.
+        /// Detects the inpainting inputs a graph declares, independently of whether the
+        /// voicebank allows keeping frames. Returns the element type of
+        /// <c>inpaint_mask</c> (bool for current exports, float for older ones), or null
+        /// when the graph has neither input. Throws when the inputs exist but their
+        /// element types make them unusable: such a graph cannot be fed correctly.
         /// </summary>
-        public static Type ValidateModelInputs(
+        public static Type? InspectModelInputs(
                 string acousticFile, IReadOnlyList<string> inputNames,
                 Func<string, Type?> elementTypeOf) {
-            var missing = new[] { RefMelInputName, MaskInputName }
-                .Where(name => !inputNames.Contains(name))
-                .ToArray();
-            if (missing.Length > 0) {
-                throw new InvalidDataException(
-                    $"The voicebank declares use_inpaint: true, but \"{acousticFile}\" has no " +
-                    $"\"{string.Join("\", \"", missing)}\" input. Re-export the acoustic model with " +
-                    "\"--inpaint\", or remove use_inpaint from dsconfig.yaml.");
+            if (!inputNames.Contains(RefMelInputName) || !inputNames.Contains(MaskInputName)) {
+                return null;
             }
             var refMelType = elementTypeOf(RefMelInputName);
             if (refMelType != typeof(float)) {
@@ -244,6 +249,29 @@ namespace OpenUtau.Core.DiffSinger {
                 throw new InvalidDataException(
                     $"The acoustic model's \"{MaskInputName}\" input must be bool, " +
                     $"but \"{acousticFile}\" declares {maskType?.Name ?? "an unknown type"}.");
+            }
+            return maskType;
+        }
+
+        /// <summary>
+        /// Checks the inputs a voicebank that declares <c>use_inpaint: true</c> must
+        /// export, and returns the element type of <c>inpaint_mask</c>. Throws with an
+        /// actionable message when the graph cannot honour the declaration: a broken
+        /// voicebank must fail loudly instead of silently rendering without the kept
+        /// region.
+        /// </summary>
+        public static Type ValidateModelInputs(
+                string acousticFile, IReadOnlyList<string> inputNames,
+                Func<string, Type?> elementTypeOf) {
+            var maskType = InspectModelInputs(acousticFile, inputNames, elementTypeOf);
+            if (maskType == null) {
+                var missing = new[] { RefMelInputName, MaskInputName }
+                    .Where(name => !inputNames.Contains(name))
+                    .ToArray();
+                throw new InvalidDataException(
+                    $"The voicebank declares use_inpaint: true, but \"{acousticFile}\" has no " +
+                    $"\"{string.Join("\", \"", missing)}\" input. Re-export the acoustic model with " +
+                    "\"--inpaint\", or remove use_inpaint from dsconfig.yaml.");
             }
             return maskType;
         }

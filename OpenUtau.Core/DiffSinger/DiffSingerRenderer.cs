@@ -140,7 +140,8 @@ namespace OpenUtau.Core.DiffSinger {
                         // The wav on disk is authoritative for its phrase hash. A mel kept
                         // for another version of the same phrase must not be reused, or the
                         // untouched frames would silently come from the wrong take.
-                        singer.AcousticInpaintStates.RemoveForPhrase(phrase.preEffectHash, phrase.hash);
+                        singer.AcousticInpaintStates.RemoveForPhrase(
+                            phrase.partId.Value, phrase.position, phrase.preEffectHash, phrase.hash);
                     }
                     if (result.samples == null) {
                         result.samples = InvokeDiffsinger(phrase, depth, steps, cancellation, renderEvents);
@@ -247,9 +248,9 @@ namespace OpenUtau.Core.DiffSinger {
             }
 
             var acousticModel = singer.getAcousticSession();
-            // Validates the voicebank's use_inpaint declaration against the exported
-            // graph. A mismatch throws instead of silently rendering without the kept
-            // region, which would look like the feature simply did nothing.
+            // A graph that declares the inputs must be fed them on every run; the
+            // voicebank's use_inpaint flag only decides whether frames may be kept.
+            bool acousticInpaintInputs = singer.HasAcousticInpaintInputs(acousticModel);
             bool acousticInpaintSupported = singer.EnsureAcousticInpaintSupported(acousticModel);
             bool hasXsy = phrase.xsy != null && phrase.xsy.Any(x => x > 0);
             bool acousticInpaint = acousticInpaintSupported
@@ -546,7 +547,7 @@ namespace OpenUtau.Core.DiffSinger {
                     inpaintPartial ? DiffSingerAcousticInpaint.CountChanged(inpaintMask) : totalFrames,
                     totalFrames, DiffSingerAcousticInpaint.MarginFrames);
             }
-            if (acousticInpaintSupported) {
+            if (acousticInpaintInputs) {
                 // The exported graph requires these inputs on every run, whether or not
                 // this render keeps anything: a full render is an all-true mask over a
                 // zero ref_mel, which is the plain sampling pass.
@@ -654,7 +655,8 @@ namespace OpenUtau.Core.DiffSinger {
                     // only refreshes a reference that already exists, so enabling the
                     // feature later compares against the take the user heard.
                     singer.AcousticInpaintStates.Set(new AcousticInpaintState(
-                        inpaintKey.Value, singer.acousticHash, totalFrames, bins, frameMs,
+                        inpaintKey.Value, singer.acousticHash, phrase.partId.Value, phrase.position,
+                        totalFrames, bins, frameMs,
                         rawMel, acousticConditions, phrase.preEffectHash, phrase.hash));
                 }
             }

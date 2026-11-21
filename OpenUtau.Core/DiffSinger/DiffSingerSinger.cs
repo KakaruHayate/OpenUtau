@@ -70,6 +70,7 @@ namespace OpenUtau.Core.DiffSinger {
         /// </summary>
         public readonly AcousticInpaintStateCache AcousticInpaintStates = new AcousticInpaintStateCache(8);
         bool? acousticInpaintSupported;
+        bool? acousticInpaintInputsDeclared;
         /// <summary>
         /// Whether the exported inpaint_mask input is bool (the current interface) or
         /// float (exports made before the mask was changed to bool).
@@ -213,10 +214,34 @@ namespace OpenUtau.Core.DiffSinger {
         }
 
         /// <summary>
-        /// Whether the acoustic graph can be asked to keep frames. Also validates the
-        /// voicebank's <c>use_inpaint</c> declaration against the exported inputs and
-        /// throws when they disagree: silently rendering a mis-exported voicebank would
-        /// make the feature look like it works while the kept region is lost.
+        /// Whether the acoustic graph declares the inpainting inputs. This is separate
+        /// from <see cref="EnsureAcousticInpaintSupported"/>: a graph that declares them
+        /// must be fed them on every run, even when the voicebank does not allow keeping
+        /// frames. Throws when the inputs exist but cannot be fed (wrong element types).
+        /// </summary>
+        public bool HasAcousticInpaintInputs(InferenceSession session) {
+            if (acousticInpaintInputsDeclared.HasValue) {
+                return acousticInpaintInputsDeclared.Value;
+            }
+            Type? maskType = DiffSingerAcousticInpaint.InspectModelInputs(
+                dsConfig.acoustic, session.InputNames,
+                name => session.InputMetadata[name].ElementType);
+            acousticInpaintInputsDeclared = maskType != null;
+            if (maskType == null) {
+                return false;
+            }
+            AcousticInpaintMaskIsBool = maskType == typeof(bool);
+            if (!AcousticInpaintMaskIsBool) {
+                Log.Debug($"DiffSinger: {Name} exports a float inpaint_mask; the bool interface is preferred.");
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Whether the voicebank permits keeping frames. Validates the
+        /// <c>use_inpaint</c> declaration against the exported inputs and throws when
+        /// they disagree: silently rendering a mis-exported voicebank would make the
+        /// feature look like it works while the kept region is lost.
         /// </summary>
         public bool EnsureAcousticInpaintSupported(InferenceSession session) {
             if (acousticInpaintSupported.HasValue) {
@@ -226,12 +251,11 @@ namespace OpenUtau.Core.DiffSinger {
                 acousticInpaintSupported = false;
                 return false;
             }
-            Type maskType = DiffSingerAcousticInpaint.ValidateModelInputs(
-                dsConfig.acoustic, session.InputNames,
-                name => session.InputMetadata[name].ElementType);
-            AcousticInpaintMaskIsBool = maskType == typeof(bool);
-            if (!AcousticInpaintMaskIsBool) {
-                Log.Debug($"DiffSinger: {Name} exports a float inpaint_mask; the bool interface is preferred.");
+            if (!HasAcousticInpaintInputs(session)) {
+                // Validate produces the actionable message naming the missing inputs.
+                DiffSingerAcousticInpaint.ValidateModelInputs(
+                    dsConfig.acoustic, session.InputNames,
+                    name => session.InputMetadata[name].ElementType);
             }
             acousticInpaintSupported = true;
             return true;
@@ -338,6 +362,7 @@ namespace OpenUtau.Core.DiffSinger {
                 variancePredictor = null;
                 AcousticInpaintStates.Clear();
                 acousticInpaintSupported = null;
+                acousticInpaintInputsDeclared = null;
                 AcousticInpaintMaskIsBool = false;
                 DiffSingerRealCurveScheduler.CancelAll();
             }

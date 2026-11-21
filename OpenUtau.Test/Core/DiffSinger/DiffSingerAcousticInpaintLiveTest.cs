@@ -114,6 +114,32 @@ namespace OpenUtau.Core {
         }
 
         /// <summary>
+        /// A graph that declares the inpainting inputs must be fed them even when the
+        /// voicebank does not permit keeping frames; the flag only controls retention.
+        /// </summary>
+        [Fact]
+        public void GraphInputsAreFedWhenRetentionIsNotPermitted() {
+            using var fixture = new Fixture();
+            var (project, track, part) = BuildPart(fixture.Singer, fixture.Renderer);
+            AddCurve(project, part, DiffSingerUtils.VELC, "velocity (curve)", 0, 200, 100);
+            var phrase = BuildPhrase(project, track, part, 1);
+
+            var singer = fixture.DsSinger;
+            bool declared = singer.dsConfig.use_inpaint;
+            singer.dsConfig.use_inpaint = false;
+            singer.FreeMemory();
+            try {
+                var samples = fixture.Render(phrase);
+                Assert.NotEmpty(samples);
+                // Retention is not permitted, so no reference is kept.
+                Assert.Empty(singer.AcousticInpaintStates.Snapshot());
+            } finally {
+                singer.dsConfig.use_inpaint = declared;
+                singer.FreeMemory();
+            }
+        }
+
+        /// <summary>
         /// Enabling local retaking after rendering with it off must keep the frames of
         /// the take the user last heard, not those of the take from before it was
         /// disabled.
