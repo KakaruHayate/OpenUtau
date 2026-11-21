@@ -175,13 +175,18 @@ jobs:
           arguments: "-DPRODUCT_VERSION=${{ needs.resolve-version.outputs.version }} -DARCH=${{ matrix.arch.arch }}"
         if: ${{ matrix.arch.os == 'win' }}
 
+      # create-dmg drives Finder through AppleScript and intermittently fails to
+      # mount/detach the image on GitHub's runners. hdiutil is the same disk image
+      # writer without the Finder dependency, so the artifact is reproducible.
       - name: Create Dmg
         run: |
-          npm install -g create-dmg
-          cp OpenUtau/Assets/OpenUtau.icns bin/${{ matrix.arch.name }}/publish/OpenUtau.app/Contents/Resources/
-          create-dmg bin/${{ matrix.arch.name }}/publish/OpenUtau.app || true
-          mv *.dmg OpenUtau-${{ matrix.arch.name }}.dmg
-          codesign -fvs - OpenUtau-${{ matrix.arch.name }}.dmg
+          app="bin/${{ matrix.arch.name }}/publish/OpenUtau.app"
+          test -d "$app"
+          rm -rf dmg-root
+          mkdir -p dmg-root
+          cp -R "$app" dmg-root/
+          ln -s /Applications dmg-root/Applications
+          hdiutil create -volname "OpenUtau" -srcfolder dmg-root -ov -format UDZO "OpenUtau-${{ matrix.arch.name }}.dmg"
         if: ${{ matrix.arch.os == 'osx' }}
 
       - name: Install LinuxDeploy
