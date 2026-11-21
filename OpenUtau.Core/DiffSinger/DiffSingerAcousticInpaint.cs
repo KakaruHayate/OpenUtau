@@ -42,8 +42,7 @@ namespace OpenUtau.Core.DiffSinger {
     internal sealed class AcousticInpaintState {
         public readonly ulong Key;
         public readonly ulong AcousticHash;
-        /// <summary>Occurrence identity: the part and the phrase position.</summary>
-        public readonly Guid PartId;
+        /// <summary>Phrase position, part of the occurrence identity shared with the variance state key.</summary>
         public readonly int PhrasePosition;
         public readonly int TotalFrames;
         public readonly int Bins;
@@ -61,13 +60,12 @@ namespace OpenUtau.Core.DiffSinger {
         public ulong PhraseHash;
 
         public AcousticInpaintState(
-                ulong key, ulong acousticHash, Guid partId, int phrasePosition,
+                ulong key, ulong acousticHash, int phrasePosition,
                 int totalFrames, int bins, float frameMs,
                 float[] mel, IReadOnlyList<AcousticCondition> conditions,
                 ulong preEffectHash, ulong phraseHash) {
             Key = key;
             AcousticHash = acousticHash;
-            PartId = partId;
             PhrasePosition = phrasePosition;
             TotalFrames = totalFrames;
             Bins = bins;
@@ -161,15 +159,14 @@ namespace OpenUtau.Core.DiffSinger {
         /// <paramref name="phraseHash"/>. Called when a render was served from the wav
         /// cache: that audio is authoritative for its hash, and a mel kept for another
         /// version of the same occurrence would silently put the wrong take under the
-        /// untouched frames of the next edit. States of other occurrences that happen to
-        /// share the pre-effect hash are left alone.
+        /// untouched frames of the next edit. Occurrences at another position are left
+        /// alone.
         /// </summary>
         public void RemoveForPhrase(
-                Guid partId, int phrasePosition, ulong preEffectHash, ulong phraseHash) {
+                int phrasePosition, ulong preEffectHash, ulong phraseHash) {
             lock (gate) {
                 var stale = entries.Values
-                    .Where(node => node.Value.state.PartId == partId
-                        && node.Value.state.PhrasePosition == phrasePosition
+                    .Where(node => node.Value.state.PhrasePosition == phrasePosition
                         && node.Value.state.PreEffectHash == preEffectHash
                         && node.Value.state.PhraseHash != phraseHash)
                     .Select(node => node.Value.key)
@@ -226,17 +223,25 @@ namespace OpenUtau.Core.DiffSinger {
         public const string MaskInputName = "inpaint_mask";
 
         /// <summary>
-        /// Detects the inpainting inputs a graph declares, independently of whether the
-        /// voicebank allows keeping frames. Returns the element type of
-        /// <c>inpaint_mask</c> (bool for current exports, float for older ones), or null
-        /// when the graph has neither input. Throws when the inputs exist but their
-        /// element types make them unusable: such a graph cannot be fed correctly.
+        /// Checks the inputs a voicebank that declares <c>use_inpaint: true</c> must
+        /// export, and returns the element type of <c>inpaint_mask</c> (bool for current
+        /// exports, float for older ones). Throws with an actionable message when the
+        /// graph cannot honour the declaration: a broken voicebank must fail loudly
+        /// instead of silently rendering without the kept region. A graph that has the
+        /// inputs without the declaration is a configuration error too; leaving the
+        /// inputs unfed makes ONNX Runtime report the missing inputs.
         /// </summary>
-        public static Type? InspectModelInputs(
+        public static Type ValidateModelInputs(
                 string acousticFile, IReadOnlyList<string> inputNames,
                 Func<string, Type?> elementTypeOf) {
-            if (!inputNames.Contains(RefMelInputName) || !inputNames.Contains(MaskInputName)) {
-                return null;
+            var missing = new[] { RefMelInputName, MaskInputName }
+                .Where(name => !inputNames.Contains(name))
+                .ToArray();
+            if (missing.Length > 0) {
+                throw new InvalidDataException(
+                    $"The voicebank declares use_inpaint: true, but \"{acousticFile}\" has no " +
+                    $"\"{string.Join("\", \"", missing)}\" input. Re-export the acoustic model with " +
+                    "\"--inpaint\", or remove use_inpaint from dsconfig.yaml.");
             }
             var refMelType = elementTypeOf(RefMelInputName);
             if (refMelType != typeof(float)) {
@@ -254,38 +259,15 @@ namespace OpenUtau.Core.DiffSinger {
         }
 
         /// <summary>
-        /// Checks the inputs a voicebank that declares <c>use_inpaint: true</c> must
-        /// export, and returns the element type of <c>inpaint_mask</c>. Throws with an
-        /// actionable message when the graph cannot honour the declaration: a broken
-        /// voicebank must fail loudly instead of silently rendering without the kept
-        /// region.
-        /// </summary>
-        public static Type ValidateModelInputs(
-                string acousticFile, IReadOnlyList<string> inputNames,
-                Func<string, Type?> elementTypeOf) {
-            var maskType = InspectModelInputs(acousticFile, inputNames, elementTypeOf);
-            if (maskType == null) {
-                var missing = new[] { RefMelInputName, MaskInputName }
-                    .Where(name => !inputNames.Contains(name))
-                    .ToArray();
-                throw new InvalidDataException(
-                    $"The voicebank declares use_inpaint: true, but \"{acousticFile}\" has no " +
-                    $"\"{string.Join("\", \"", missing)}\" input. Re-export the acoustic model with " +
-                    "\"--inpaint\", or remove use_inpaint from dsconfig.yaml.");
-            }
-            return maskType;
-        }
-
-        /// <summary>
         /// Structural identity of a render: everything that decides the mel except the
         /// curves. Curves are absent on purpose - they are compared frame by frame, so
-        /// an edit must not miss the previous state. <paramref name="preEffectHash"/> is
-        /// the phrase's curve-free identity, and the part plus its position identify the
-        /// occurrence, so two passages with equal tokens and timing keep separate states.
-        /// None of these change when a curve is edited, so an edit keeps the same key.
+        /// an edit must not miss the previous state. The phrase position and the
+        /// curve-free identity separate two occurrences with equal tokens and timing;
+        /// neither changes when a curve is edited, so an edit keeps the same key. This
+        /// mirrors the variance predictor's state key, which also uses the position.
         /// </summary>
         public static ulong BuildKey(
-                ulong acousticHash, Guid partId, int phrasePosition, ulong preEffectHash,
+                ulong acousticHash, int phrasePosition, ulong preEffectHash,
                 IReadOnlyList<long> tokens, IReadOnlyList<int> durations,
                 IReadOnlyList<long>? languages, int totalFrames, int bins, float frameMs,
                 double depth, int steps) {
@@ -293,7 +275,6 @@ namespace OpenUtau.Core.DiffSinger {
             using (var writer = new BinaryWriter(stream)) {
                 writer.Write(KeyVersion);
                 writer.Write(acousticHash);
-                writer.Write(partId.ToByteArray());
                 writer.Write(phrasePosition);
                 writer.Write(preEffectHash);
                 writer.Write(totalFrames);

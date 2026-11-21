@@ -170,8 +170,6 @@ namespace OpenUtau.Core.Render {
     public class RenderPhrase {
         public readonly USinger singer;
         public readonly TimeAxis timeAxis;
-        /// <summary>Part the phrase belongs to; with the position it identifies the occurrence.</summary>
-        public readonly Pipeline.PartId partId;
 
         public readonly int position;
         public readonly int duration;
@@ -240,7 +238,6 @@ namespace OpenUtau.Core.Render {
             renderer = source.Renderer;
             wavtool = source.Wavtool;
             timeAxis = source.Axis;
-            partId = source.PartId;
 
             position = source.PartPosition + phrasePhonemes.First().Position;
             end = source.PartPosition + phrasePhonemes.Last().End;
