@@ -29,6 +29,8 @@ namespace OpenUtau.Core.DiffSinger {
 
         internal int Count => entries.Count;
 
+        internal bool Contains(ulong key) => entries.ContainsKey(key);
+
         internal bool TryGetValue(ulong key, out VariancePatchState state) {
             if (!entries.TryGetValue(key, out var node)) {
                 state = null!;
