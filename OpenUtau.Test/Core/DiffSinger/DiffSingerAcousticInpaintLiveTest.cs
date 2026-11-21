@@ -72,7 +72,7 @@ namespace OpenUtau.Core {
 
             bool[] mask = CompareMask(state1, state2);
             Assert.Equal(samples1.Length, samples2.Length);
-            AssertNoDifferenceOutside(fixture.HopSize, mask, samples1, samples2, out bool insideChanged);
+            AssertNoDifferenceOutside(fixture.SamplesPerFrame, mask, samples1, samples2, out bool insideChanged);
             Assert.True(insideChanged, "The edited region should sound different.");
         }
 
@@ -105,7 +105,7 @@ namespace OpenUtau.Core {
 
             Assert.Equal(samples1.Length, samples2.Length);
             int firstChanged = Array.IndexOf(mask, true);
-            int guardStart = Math.Max(0, firstChanged * fixture.HopSize - VocoderGuardSamples);
+            int guardStart = (int)Math.Max(0, firstChanged * fixture.SamplesPerFrame - VocoderGuardSamples);
             for (int i = 0; i < guardStart; i++) {
                 if (samples1[i] != samples2[i]) {
                     Assert.Fail($"Sample {i} before the edit changed, but nothing before it was regenerated.");
@@ -180,11 +180,11 @@ namespace OpenUtau.Core {
         }
 
         static void AssertNoDifferenceOutside(
-                int hopSize, bool[] mask, float[] before, float[] after, out bool insideChanged) {
+                double samplesPerFrame, bool[] mask, float[] before, float[] after, out bool insideChanged) {
             int firstChanged = Array.IndexOf(mask, true);
             int lastChanged = Array.LastIndexOf(mask, true);
-            int changedStart = Math.Max(0, firstChanged * hopSize - VocoderGuardSamples);
-            int changedEnd = Math.Min(before.Length, (lastChanged + 1) * hopSize + VocoderGuardSamples);
+            int changedStart = (int)Math.Max(0, firstChanged * samplesPerFrame - VocoderGuardSamples);
+            int changedEnd = (int)Math.Min(before.Length, (lastChanged + 1) * samplesPerFrame + VocoderGuardSamples);
             insideChanged = false;
             int outsideDifferences = 0;
             for (int i = 0; i < before.Length; i++) {
@@ -285,7 +285,8 @@ namespace OpenUtau.Core {
             public DiffSingerSinger DsSinger => dsSinger;
             public USinger Singer => dsSinger;
             public DiffSingerRenderer Renderer { get; } = new DiffSingerRenderer();
-            public int HopSize { get; }
+            /// <summary>Output samples per mel frame: the renderer resamples every vocoder to 44.1 kHz.</summary>
+            public double SamplesPerFrame { get; }
 
             public Fixture() {
                 string? root = Environment.GetEnvironmentVariable("OPENUTAU_TEST_INPAINT_SINGERS");
@@ -326,7 +327,8 @@ namespace OpenUtau.Core {
                     dsSinger = (DiffSingerSinger)singer;
                     Assert.True(dsSinger.dsConfig.use_inpaint,
                         $"{dsSinger.Name} is expected to declare use_inpaint: true.");
-                    HopSize = dsSinger.getVocoder().hop_size;
+                    var vocoder = dsSinger.getVocoder();
+                    SamplesPerFrame = vocoder.hop_size * 44100.0 / vocoder.sample_rate;
                 } catch {
                     // A throwing constructor never reaches Dispose, so restore the
                     // process-wide preferences here before letting the failure through.

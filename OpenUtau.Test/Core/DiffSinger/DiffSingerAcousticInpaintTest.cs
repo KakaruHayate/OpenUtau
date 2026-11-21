@@ -97,25 +97,33 @@ namespace OpenUtau.Core {
             var tokens = new long[] { 1, 2, 3 };
             var durations = new int[] { 4, 5, 6 };
             var languages = new long[] { 0, 0, 0 };
+            var partId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+            var otherPartId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
 
             ulong key = DiffSingerAcousticInpaint.BuildKey(
-                42, 7, tokens, durations, languages, 15, 128, 11.61f, 0.6, 20);
+                42, partId, 480, 7, tokens, durations, languages, 15, 128, 11.61f, 0.6, 20);
 
             Assert.Equal(key, DiffSingerAcousticInpaint.BuildKey(
-                42, 7, tokens.ToArray(), durations.ToArray(), languages.ToArray(), 15, 128, 11.61f, 0.6, 20));
-            // A different phrase with the same tokens and timing keeps its own state.
+                42, partId, 480, 7, tokens.ToArray(), durations.ToArray(), languages.ToArray(),
+                15, 128, 11.61f, 0.6, 20));
+            // The same content in another part, at another position, or with another
+            // pre-effect identity keeps its own state.
             Assert.NotEqual(key, DiffSingerAcousticInpaint.BuildKey(
-                42, 8, tokens, durations, languages, 15, 128, 11.61f, 0.6, 20));
+                42, otherPartId, 480, 7, tokens, durations, languages, 15, 128, 11.61f, 0.6, 20));
             Assert.NotEqual(key, DiffSingerAcousticInpaint.BuildKey(
-                42, 7, tokens, new[] { 4, 5, 7 }, languages, 16, 128, 11.61f, 0.6, 20));
+                42, partId, 960, 7, tokens, durations, languages, 15, 128, 11.61f, 0.6, 20));
             Assert.NotEqual(key, DiffSingerAcousticInpaint.BuildKey(
-                42, 7, new long[] { 1, 2, 4 }, durations, languages, 15, 128, 11.61f, 0.6, 20));
+                42, partId, 480, 8, tokens, durations, languages, 15, 128, 11.61f, 0.6, 20));
             Assert.NotEqual(key, DiffSingerAcousticInpaint.BuildKey(
-                42, 7, tokens, durations, languages, 15, 128, 11.61f, 0.6, 10));
+                42, partId, 480, 7, tokens, new[] { 4, 5, 7 }, languages, 16, 128, 11.61f, 0.6, 20));
             Assert.NotEqual(key, DiffSingerAcousticInpaint.BuildKey(
-                42, 7, tokens, durations, languages, 15, 128, 11.61f, 0.4, 20));
+                42, partId, 480, 7, new long[] { 1, 2, 4 }, durations, languages, 15, 128, 11.61f, 0.6, 20));
             Assert.NotEqual(key, DiffSingerAcousticInpaint.BuildKey(
-                43, 7, tokens, durations, languages, 15, 128, 11.61f, 0.6, 20));
+                42, partId, 480, 7, tokens, durations, languages, 15, 128, 11.61f, 0.6, 10));
+            Assert.NotEqual(key, DiffSingerAcousticInpaint.BuildKey(
+                42, partId, 480, 7, tokens, durations, languages, 15, 128, 11.61f, 0.4, 20));
+            Assert.NotEqual(key, DiffSingerAcousticInpaint.BuildKey(
+                43, partId, 480, 7, tokens, durations, languages, 15, 128, 11.61f, 0.6, 20));
         }
 
         [Fact]

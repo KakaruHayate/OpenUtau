@@ -288,8 +288,8 @@ namespace OpenUtau.Core.DiffSinger {
             AcousticInpaintState? previousState = null;
             if (acousticInpaintSupported && !hasXsy) {
                 inpaintKey = DiffSingerAcousticInpaint.BuildKey(
-                    singer.acousticHash, phrase.preEffectHash, tokens, durations, languages,
-                    totalFrames, bins, frameMs, depth, steps);
+                    singer.acousticHash, phrase.partId.Value, phrase.position, phrase.preEffectHash,
+                    tokens, durations, languages, totalFrames, bins, frameMs, depth, steps);
                 previousState = singer.AcousticInpaintStates.TryGet(inpaintKey.Value);
             }
             bool keepReference = acousticInpaint || previousState != null;
